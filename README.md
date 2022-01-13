@@ -1,5 +1,5 @@
 # Atari-ST-draughts
-Game of international draughts for Atari ST.
+Home made version of the game of international draughts for Atari ST.
 Also known as checkers in the US and 'dammen' in the Netherlands
 The Dutch have a long tradition of draughts and had several world champions, 
 such as Harm Wiersma and Jannes van der Wal.
