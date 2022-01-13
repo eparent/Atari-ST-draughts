@@ -9,7 +9,9 @@ Developed on Atari ST in gcc. <br>
 Tested in 2022 and still working.<br>
 <br>
 Play against the computer at arbitrary depth ('diepte') <br>
-At full depth it was unbeatable for amateur players.<<br>
+At full depth it was unbeatable for amateur players.<br>
+This version supports 'crowning' (or 'dam') <br>
+
 <br>
 It contains as a simple GUI interface and mouse support.<br>
 <br>
