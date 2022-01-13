@@ -16,5 +16,6 @@ This version supports 'crowning' (dutch: 'dam') <br>
 It contains a simple GUI interface and mouse support.<br>
 <br>
 The project contains the following files :<br>
-Dammen.c   - the C++ source code <br>
-Dammen.prg - the Atari ST executable<br>
+Dammen.c       - the C++ source code <br>
+Dammen.prg     - the Atari ST executable<br>
+screenshot.jpg - an example of the GUI
