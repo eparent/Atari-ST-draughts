@@ -10,10 +10,10 @@ Tested in 2022 and still working.<br>
 <br>
 Play against the computer at arbitrary depth ('diepte') <br>
 At full depth it was unbeatable for amateur players.<br>
-This version supports 'crowning' (or 'dam') <br>
+This version supports 'crowning' (dutch: 'dam') <br>
 
 <br>
-It contains as a simple GUI interface and mouse support.<br>
+It contains a simple GUI interface and mouse support.<br>
 <br>
 The project contains the following files :<br>
 Dammen.c   - the C++ source code <br>
