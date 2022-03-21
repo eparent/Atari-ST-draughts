@@ -1,3 +1,4 @@
+#include <string.h>
 /*#include "init.c"*/
 #include "tos.h"
 /*#include "gembind.h"*/
@@ -6,6 +7,8 @@
 #include "aes.h"                                                        
 /*#include "obdefs.h"*/                                         /*scwslaan*/               
 /*# define STACKSIZE 15000 ;*/
+
+#include "menu.h"
 
 
 #define TRUE=1
@@ -38,7 +41,7 @@ static void initbord(int handle);
 static void leegbord(int handle);
 static void levelomhoog(int handle);
 static void levelomlaag(int handle);
-static void linkermenu(int handle);
+static void do_menu(int handle);
 static void meesteburenzwart(int handle);
 static void nieuwspel(int handle);
 static void scanlawdamslag(int hok);
@@ -113,7 +116,7 @@ int rrv[51]={0,0,0,0,0,0,0,0,0,0,0,2,3,4,5,0,7,8,9,10,0,12,13,14,15,0,
 int array[21],maxarray[21],maxscore,tel,tal,c,d,hulp[20],count,mixscore,
     vorige[30],volgende[30],from[30],to[30],diepte,diep,pointwit[30],
     pointzwart[30],kat,zslag[25][25],wslag[25][25],aantal,oud;
-int slarray[20][20],bestslarray[20],level,wisselbitje,mz,bitje,
+int slarray[20][20],bestslarray[20],level = 3,wisselbitje,mz,bitje,
     skore[10],totzwart,totwit,eerstarray[30],eerste,slag,zet,
     eerstaantal,hiscore,eerstvan,eerstnaar,bestvan[20],bestnaar[20],
     bestarray[10][30],witheeftgezet,bestaantal,anfang,ende,rendom;
@@ -1190,47 +1193,53 @@ fietsen:*/
 }
 
 
-static void linkermenu(int handle)
-{int pstatus,x,y;
-hide_mouse();
-pxyarray[0]=10;pxyarray[1]=20;pxyarray[2]=90;pxyarray[3]=40;
-vsl_type(handle,1);vsf_interior(handle,0);vswr_mode(handle,3);
-v_rbox(handle,pxyarray);
-pxyarray[1]=60;pxyarray[3]=80;v_rbox(handle,pxyarray);
-pxyarray[1]=100;pxyarray[3]=120;v_rbox(handle,pxyarray);
-pxyarray[1]=140;pxyarray[3]=160;v_rbox(handle,pxyarray);
-pxyarray[1]=180;pxyarray[3]=200;v_rbox(handle,pxyarray);
-pxyarray[1]=220;pxyarray[3]=240;v_rbox(handle,pxyarray);
-pxyarray[1]=260;pxyarray[3]=280;v_rbox(handle,pxyarray);
-pxyarray[1]=340;pxyarray[3]=360;v_rbox(handle,pxyarray);
-vswr_mode(handle,3);
-v_gtext(handle,33,35,"stop");
-v_gtext(handle,17,75,"leegbord");
-v_gtext(handle,15,115,"nieuwspel");
-v_gtext(handle,17,155,"zetterug");
-v_gtext(handle,17,195,"voorruit");
-v_gtext(handle,33,235,"edit");
-v_gtext(handle,27,275,"level++");
-level++;levelomlaag(handle);vswr_mode(handle,3);
-v_gtext(handle,27,355,"level--");
-vswr_mode(handle,1);
-show_mouse();
-b:;vq_mouse(handle,&pstatus,&x,&y);
-if((pstatus==1)&&(x>10)&&(x<90)&&(y>20)&&(y<40)){klaar=1;goto d;};
-if((pstatus==1)&&(x>10)&&(x<90)&&(y>60)&&(y<80))leegbord(handle);
-if((pstatus==1)&&(x>10)&&(x<90)&&(y>100)&&(y<120))nieuwspel(handle);
-if((pstatus==1)&&(x>10)&&(x<90)&&(y>140)&&(y<160))zetterug(handle);
-if((pstatus==1)&&(x>10)&&(x<90)&&(y>180)&&(y<200))voorruit(handle);
-if((pstatus==1)&&(x>10)&&(x<90)&&(y>220)&&(y<240))edit(handle);
-if((pstatus==1)&&(x>10)&&(x<90)&&(y>260)&&(y<280))levelomhoog(handle);
-if((pstatus==1)&&(x>10)&&(x<90)&&(y>340)&&(y<360))levelomlaag(handle);
-if(x<100) goto b;
-pxyarray[0]=0;pxyarray[1]=0;pxyarray[2]=100;vsf_interior(handle,2);     
-pxyarray[3]=400;vsl_type(handle,1);vswr_mode(handle,1);
-vsf_style(handle,8);vr_recfl(handle,pxyarray); 
-d:;
-}
+static void do_menu(int handle)
+{
+	int pstatus, x, y;
 
+	menu_show(handle, level);
+
+	do
+	{
+		vq_mouse(handle, &pstatus, &x, &y);
+		if (pstatus == 1) /* left click */
+		{
+			switch (menu_button_at(x, y))
+			{
+				case IDM_EXIT:
+					klaar = 1;
+					break;
+				case IDM_CLEAR:
+					leegbord(handle);
+					break;
+				case IDM_NEW:
+					nieuwspel(handle);
+					break;
+				case IDM_UNDO:
+					zetterug(handle);
+					break;
+				case IDM_WINDOW:
+					voorruit(handle);
+					break;
+				case IDM_EDIT:
+					edit(handle);
+					break;
+				case IDM_LEVUP:
+					if (level < 6)
+						menu_update_level(handle, ++level);
+					break;
+				case IDM_LEVDN:
+					if (level > 1)
+						menu_update_level(handle, --level);
+					break;
+			}
+			while (pstatus == 1)
+				vq_mouse(handle, &pstatus, &x, &y);
+		}
+	} while (klaar == 0 && menu_contains(x, y));
+
+	menu_hide(handle);
+}
 
 
 static void zetterug(int handle)
@@ -1305,13 +1314,22 @@ vswr_mode(handle,3);show_mouse();
 
 
 static void leegbord(int handle)
-{for(tel=1;tel<51;tel++)
-    {if(veld[tel]!=4)verwijderschijf(handle,tel);};
-zettenteller++;if(zettenteller>mz)mz=zettenteller;
-for(tel=1;tel<51;tel++)bord[zettenteller][tel]=veld[tel];
-if(zettenteller>105)zettenteller=0;
+{
+	for (tel = 1; tel < 51; tel++)
+	{
+		if (veld[tel] != 4)
+			verwijderschijf(handle, tel); /* delete disk */
+	}
+	zettenteller++;
+	if (zettenteller > mz)
+		mz = zettenteller;
+	for (tel = 1; tel < 51; tel++)
+		bord[zettenteller][tel] = veld[tel];
+	if (zettenteller > 105)
+		zettenteller = 0;
 }
 
+/*
 static void levelomhoog(int handle)
 {int pstatus,x,y;
  level++;vq_mouse(handle,&pstatus,&x,&y);
@@ -1349,6 +1367,7 @@ vst_effects(handle,0);vswr_mode(handle,3);
  if(level==6)v_gtext(handle,24,315,"level:6");vswr_mode(handle,3); 
 while(pstatus==1)vq_mouse(handle,&pstatus,&x,&y);
 }
+*/
 
 int main(void)
 {
@@ -1454,8 +1473,8 @@ g:
 			rendom++;
 			if (rendom > 50)
 				rendom = 1;
-			if (x < 100)
-				linkermenu(handle);
+			if (menu_contains(x, y))
+				do_menu(handle);
 			/*if (x > 100)
 				goto c;*/
 		}
