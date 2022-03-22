@@ -126,11 +126,26 @@ int hulpje,daar,teller,buf[30],goed,kut,cont,zwartesteen,wittesteen,leeg,
 int minwit[10],maxwit[10],minzwart[10],moizet,moislag,slagveld[51],
     maxzwart[10],wit[10],zwart[10],zwartedam,wittedam,witgezet;
 
+
 void hide_mouse(void)
-{if(!hidden){graf_mouse( M_OFF, (void *)0 );hidden=1;}}
+{
+	if (!hidden)
+	{
+		graf_mouse(M_OFF, NULL);
+		hidden = 1;
+	}
+}
+
  
 void show_mouse(void)
-{if(hidden){graf_mouse(M_ON,(void *)0);hidden=0;}}
+{
+	if (hidden)
+	{
+		graf_mouse(M_ON, NULL);
+		hidden = 0;
+	}
+}
+
 
 static void tekenschijf(int handle, int plek, int kleur)
 {int x,y;/*vsf_interior(handle,2);*/  
@@ -1387,7 +1402,7 @@ int main(void)
 	/*grootte = 300;*/
 
 	appl_init();
-	graf_mouse(ARROW, 0x0L);
+	graf_mouse(ARROW, NULL);
 	hide_mouse();
 	v_opnvwk(work_in, &handle, work_out);
 	v_clrwk(handle);
@@ -1460,7 +1475,6 @@ int main(void)
 	level = 3;
 	vq_mouse(handle, &pstatus, &x, &y);
 	klaar = 0;
-	graf_mouse(1, 0L);/*7);*/
 	while (klaar == 0)
 	{
 		for (tel = 1; tel < 51; tel++)
