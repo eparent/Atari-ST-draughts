@@ -1,4 +1,7 @@
 # Atari-ST-draughts
+
+![](screenshot.jpg)
+
 Home made version of the game of international draughts for Atari ST.<br>
 Also known as checkers in the US and 'dammen' in the Netherlands. <br>
 The Dutch have a long tradition of draughts and had several world champions, 
