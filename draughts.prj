@@ -1,0 +1,38 @@
+;---------------------------------------------------------------------
+; Output File Name
+;---------------------------------------------------------------------
+draughts.prg
+
+;---------------------------------------------------------------------
+; Options for Compiler (.C), Assembler (.S), Linker (.L)
+;---------------------------------------------------------------------
+;.C [ -Y -W-par ]
+.C [ -W-par ]
+;.L [ -Y ]
+
+=
+
+;---------------------------------------------------------------------
+; Startup / Runtime Modules
+;---------------------------------------------------------------------
+lib\pcstart.o   ; default
+; lib\pcvstart.o  ; with extended argument (ARGV) passing
+; lib\pcxstart.o  ; with i/o redirection as part of commandline
+
+;---------------------------------------------------------------------
+; Source Code
+;---------------------------------------------------------------------
+menu.c
+dammen.c
+
+;---------------------------------------------------------------------
+; Libraries
+;---------------------------------------------------------------------
+; lib\pc881lib.lib  ; 68881/2 floating point library
+; lib\pcbgilib.lib  ; Borland Graphics Interface library
+; lib\pcextlib.lib  ; Pure C extensions library (see: ext.h)
+; lib\pcfltlib.lib  ; Floating point library
+lib\pcgemlib.lib  ; AES/VDI library
+; lib\pclnalib.lib  ; Line A library
+lib\pcstdlib.lib  ; Standard library (stdio, etc.)
+lib\pctoslib.lib  ; BIOS/XBIOS/GEMDOS library
