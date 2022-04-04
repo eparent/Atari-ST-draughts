@@ -19,6 +19,7 @@ enum {
 void menu_show(int handle, int level);
 void menu_hide(int handle);
 void menu_update_level(int handle, int level);
+void menu_set_edit(int handle, int edit);
 
 int menu_contains(int x, int y);
 int menu_button_at(int x, int y);

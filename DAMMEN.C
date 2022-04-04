@@ -1,19 +1,23 @@
 #include <string.h>
-/*#include "init.c"*/
-#include "tos.h"
-/*#include "gembind.h"*/
-#include "vdi.h"
-#include "stddef.h"
-#include "aes.h"                                                        
-/*#include "obdefs.h"*/                                         /*scwslaan*/               
-/*# define STACKSIZE 15000 ;*/
+#include <stddef.h>
 
+#include <tos.h>
+#include <vdi.h>
+#include <aes.h>
+
+#include "board.h"
 #include "menu.h"
 
 
-#define TRUE=1
-#define FALSE=0
+static void debug_msg(int handle, const char *msg);
 
+static void init_board(int handle);
+static void clear_board(int handle);
+static void new_game(int handle);
+static void do_menu(int handle);
+static void where_is_mouse(int handle);
+static void draw_piece(int handle, int place, int color);
+static void remove_piece(int handle, int place);
 
 static void bestzwart(int handle);
 static void controleerwzet(int van, int naar);
@@ -37,13 +41,9 @@ static void dozwtrugzet(int handle, int zfrom, int zto);
 static void dowheenzet(int handle, int wfrom, int wto);
 static void dowtrugzet(int handle, int wfrom, int wto);
 static void edit(int handle);
-static void initbord(int handle);
-static void leegbord(int handle);
 static void levelomhoog(int handle);
 static void levelomlaag(int handle);
-static void do_menu(int handle);
 static void meesteburenzwart(int handle);
-static void nieuwspel(int handle);
 static void scanlawdamslag(int hok);
 static void scanlazdamslag(int hok);
 static void scanlvwdamslag(int hok);
@@ -56,13 +56,11 @@ static void scanwslaan(int hok);
 static void scanzwslaan(int hok);
 static void scwitslag(int handle);
 static void sczwartslag(int handle);
-static void tekenschijf(int handle, int plek, int kleur);
-static void tekenveld(int handle);
+
+/*static void tekenveld(int handle);*/
 static void tekenwittedam(int handle, int plaats);
 static void tekenzwartedam(int handle, int plaats);
-static void verwijderschijf(int handle, int plek);
 static void voorruit(int handle);
-static void waarismuis(int handle);
 static void wacht(int til);
 static void wittedamzet(int handle);
 static void witteslag(int handle);
@@ -70,61 +68,68 @@ static void zetterug(int handle);
 static void zwatteslag(int handle);
 
 
-int contrl[12], intin[128], ptsin[128], intout[128], ptsout[128],
-    work_in[11], work_out[57];                                /*zwdamslag*/           
-int handle, pxyarray[8],hidden,veld[60],ok,score,testbitje;   /*bestzwart*/
-int posx[51]={50,160,240,320,400,480,120,200,280,360,440,
-                160,240,320,400,480,120,200,280,360,440,
-                160,240,320,400,480,120,200,280,360,440, 
-                160,240,320,400,480,120,200,280,360,440,
-                160,240,320,400,480,120,200,280,360,440};
+int g_exit;
 
-int posy[51]={50,20,20,20,20,20,60,60,60,60,60,100,100,100,100,100,
-              140,140,140,140,140,180,180,180,180,180,220,220,220,220,220,
-              260,260,260,260,260,300,300,300,300,300,340,340,340,340,340,
-              380,380,380,380,380};
+int level = 3, wisselbitje, mz, bitje, eerste, slag, zet, bestaantal, anfang,
+	ende, rendom, hulpje, daar, teller, goed, kut, cont, ok,
+	score, maxaantburen, maxvan, maxnaar, anzahl, zettenteller,
+	illegalezet, maxscore, tel, count, mixscore, diepte, kat, aantal, hidden,
+	moizet, moislag, witgezet;
 
-int lv[51]={0,0,0,0,0,0,0,1,2,3,4,6,7,8,9,10,0,11,12,13,14,16,17,18,19,20
-  ,0,21,22,23,24,26,27,28,29,30,0,31,32,33,34,36,37,38,39,40,0,41,42,43,44}; 
+int pxyarray[8], veld[60];
 
-int rv[51]={0,0,0,0,0,0,1,2,3,4,5,7,8,9,10,0,11,12,13,14,15,17,18,19,20,0,
- 21,22,23,24,25,27,28,29,30,0,31,32,33,34,35,37,38,39,40,0,41,42,43,44,45};
+int posx[51] = {
+	50,
+	160,240,320,400,480,120,200,280,360,440,
+	160,240,320,400,480,120,200,280,360,440,
+	160,240,320,400,480,120,200,280,360,440,
+	160,240,320,400,480,120,200,280,360,440,
+	160,240,320,400,480,120,200,280,360,440
+};
+int posy[51] = {
+	50,
+	20,20,20,20,20,60,60,60,60,60,
+	100,100,100,100,100,140,140,140,140,140,
+	180,180,180,180,180,220,220,220,220,220,
+	260,260,260,260,260,300,300,300,300,300,
+	340,340,340,340,340,380,380,380,380,380
+};
 
-int ra[51]={0,7,8,9,10,0,11,12,13,14,15,17,18,19,20,0,21,22,23,24,25,27,
- 28,29,30,0,31,32,33,34,35,37,38,39,40,0,41,42,43,44,45,47,48,49,50,0,0,0,
- 0,0,0};
- 
-int rra[51]={0,12,13,14,15,0,17,18,19,20,0,22,23,24,25,0,27,28,29,30,0,
- 32,33,34,35,0,37,38,39,40,0,42,43,44,45,0,47,48,49,50,0,0,0,0,0,0,0
- ,0,0,0,0};
-
-int la[51]={0,6,7,8,9,10,0,11,12,13,14,16,17,18,19,20,0,21,22,23,24,26,27,
- 28,29,30,0,31,32,33,34,36,37,38,39,40,0,41,42,43,44,46,47,48,49,50
- ,0,0,0,0,0};
-
-int lla[51]={0,0,11,12,13,14,0,16,17,18,19,0,21,22,23,24,0,26,27,28,29,0,
- 31,32,33,34,0,36,37,38,39,0,41,42,43,44,0,46,47,48,49,0,0,0,0,0,0,0,0,0,0};
-
-int llv[51]={0,0,0,0,0,0,0,0,0,0,0,0,1,2,3,4,0,6,7,8,9,0,11,12,
- 13,14,0,16,17,18,19,0,21,22,23,24,0,26,27,28,29,0,31,32,33,34,0,36,37,
- 38,39};
+int lv[51] = {0,0,0,0,0,0,0,1,2,3,4,6,7,8,9,10,0,11,12,13,14,16,17,18,19,20,0,
+	21,22,23,24,26,27,28,29,30,0,31,32,33,34,36,37,38,39,40,0,41,42,43,44};
+int rv[51] = {0,0,0,0,0,0,1,2,3,4,5,7,8,9,10,0,11,12,13,14,15,17,18,19,20,0,
+	21,22,23,24,25,27,28,29,30,0,31,32,33,34,35,37,38,39,40,0,41,42,43,44,45};
+int ra[51] = {0,7,8,9,10,0,11,12,13,14,15,17,18,19,20,0,21,22,23,24,25,27,28,29,
+	30,0,31,32,33,34,35,37,38,39,40,0,41,42,43,44,45,47,48,49,50,0,0,0,0,0,0};
+int rra[51] = {0,12,13,14,15,0,17,18,19,20,0,22,23,24,25,0,27,28,29,30,0,32,33,
+	34,35,0,37,38,39,40,0,42,43,44,45,0,47,48,49,50,0,0,0,0,0,0,0,0,0,0,0};
+int la[51] = {0,6,7,8,9,10,0,11,12,13,14,16,17,18,19,20,0,21,22,23,24,26,27,28,
+	29,30,0,31,32,33,34,36,37,38,39,40,0,41,42,43,44,46,47,48,49,50,0,0,0,0,0};
+int lla[51] = {0,0,11,12,13,14,0,16,17,18,19,0,21,22,23,24,0,26,27,28,29,0,31,
+	32,33,34,0,36,37,38,39,0,41,42,43,44,0,46,47,48,49,0,0,0,0,0,0,0,0,0,0};
+int llv[51] = {0,0,0,0,0,0,0,0,0,0,0,0,1,2,3,4,0,6,7,8,9,0,11,12,13,14,0,16,
+	17,18,19,0,21,22,23,24,0,26,27,28,29,0,31,32,33,34,0,36,37,38,39};
+int rrv[51] = {0,0,0,0,0,0,0,0,0,0,0,2,3,4,5,0,7,8,9,10,0,12,13,14,15,0,17,
+	18,19,20,0,22,23,24,25,0,27,28,29,30,0,32,33,34,35,0,37,38,39,40,0};
 
 
-int rrv[51]={0,0,0,0,0,0,0,0,0,0,0,2,3,4,5,0,7,8,9,10,0,12,13,14,15,0,
- 17,18,19,20,0,22,23,24,25,0,27,28,29,30,0,32,33,34,35,0,37,38,39,40,0};
+int array[21],
+	zslag[25][25], wslag[25][25],
+	bestvan[20], bestnaar[20], bestarray[10][30],
+	buf[30], bord[110][60],
+	minwit[10], maxwit[10], minzwart[10],
+	slagveld[51],
+    maxzwart[10], wit[10], zwart[10];
 
-int array[21],maxarray[21],maxscore,tel,tal,c,d,hulp[20],count,mixscore,
-    vorige[30],volgende[30],from[30],to[30],diepte,diep,pointwit[30],
-    pointzwart[30],kat,zslag[25][25],wslag[25][25],aantal,oud;
-int slarray[20][20],bestslarray[20],level = 3,wisselbitje,mz,bitje,
-    skore[10],totzwart,totwit,eerstarray[30],eerste,slag,zet,
-    eerstaantal,hiscore,eerstvan,eerstnaar,bestvan[20],bestnaar[20],
-    bestarray[10][30],witheeftgezet,bestaantal,anfang,ende,rendom;
-int hulpje,daar,teller,buf[30],goed,kut,cont,zwartesteen,wittesteen,leeg,
-    plekkie,minimaalverlies,maxaantburen,aantalburen,maxvan,maxnaar,anzahl,
-    subhigh,minsubhigh[30],klaar,zettenteller,bord[110][60],illegalezet;
-int minwit[10],maxwit[10],minzwart[10],moizet,moislag,slagveld[51],
-    maxzwart[10],wit[10],zwart[10],zwartedam,wittedam,witgezet;
+/*
+minsubhigh[30]
+witheeftgezet plekkie minimaalverlies aantalburen subhigh
+int slarray[20][20],bestslarray[20] skore[10] totzwart totwit
+eerstarray[30] eerstaantal hiscore eerstvan eerstnaar
+int testbitje, diep, pointwit[30], pointzwart[30],oud;
+int contrl[12], intin[128], ptsin[128], intout[128], ptsout[128];
+int maxarray[21], hulp[20], from[30], to[30], vorige[30], volgende[30];
+*/
 
 
 void hide_mouse(void)
@@ -147,236 +152,528 @@ void show_mouse(void)
 }
 
 
-static void tekenschijf(int handle, int plek, int kleur)
-{int x,y;/*vsf_interior(handle,2);*/  
- if(kleur==1){tekenwittedam(handle,plek);goto guppy;};
- if(kleur==3){tekenzwartedam(handle,plek);goto guppy;};
-  vsf_interior(handle,kleur);vswr_mode(handle,1);
-  vsf_style(handle,8);   
-  x=posx[plek];
-  y=posy[plek];
-  v_circle(handle,x,y,19);vsf_interior(handle,0);
-if(kleur==0){v_circle(handle,x,y,13);v_circle(handle,x,y,6);veld[plek]=0;};
-if(kleur==2){vsl_type(handle,1);vsf_interior(handle,0);vswr_mode(handle,3);
-             vsf_style(handle,8);vsm_color(handle,2);veld[plek]=2;  
-             v_circle(handle,x,y,13);v_circle(handle,x,y,6);};  
-vsf_interior(handle,2);
-vsl_type(handle,1);vswr_mode(handle,1);guppy: ;
-}
-
-
-static void tekenwittedam(int handle, int plaats)
+static void draw_piece(int handle, int pos, int piece)
 {
- verwijderschijf(handle,plaats);
- pxyarray[0]=posx[plaats]-15;pxyarray[1]=posy[plaats]-10;
- pxyarray[2]=posx[plaats]+15;pxyarray[3]=posy[plaats]+10;
- vsf_interior(handle,0);vsf_style(handle,8);vsl_type(handle,1);
- vr_recfl(handle,pxyarray); 
- pxyarray[0]=posx[plaats]-15;pxyarray[1]=posy[plaats];
- pxyarray[2]=posx[plaats]+15;pxyarray[3]=posy[plaats];
- v_pline(handle,2,pxyarray);
- veld[plaats]=1;
+#ifdef OLD_DRAW_PIECE
+	int x, y;
+#endif
+
+	/*vsf_interior(handle,2);*/  
+ 	if (piece == PIECE_LIGHT_KING)
+	{
+		/* white */
+		tekenwittedam(handle, pos);
+		return;
+	}
+ 	if (piece == PIECE_DARK_KING)
+	{
+		/* black */
+		tekenzwartedam(handle, pos);
+		return;
+	}
+#ifdef OLD_DRAW_PIECE
+	vsf_interior(handle, piece);
+	vswr_mode(handle, MD_REPLACE);
+	vsf_style(handle, 8);
+	x = posx[pos];
+	y = posy[pos];
+	v_circle(handle, x, y, 17);/*19);*/
+
+	vsf_interior(handle, 0);
+	if (piece == PIECE_LIGHT_MAN)
+	{
+		v_circle(handle, x, y, 13);
+		v_circle(handle, x, y, 6);
+		veld[pos] = 0;
+	}
+	if (piece == PIECE_DARK_MAN)
+	{
+		vsl_type(handle, 1);
+		vsf_interior(handle, 0);
+		vswr_mode(handle, MD_XOR);
+		vsf_style(handle, 8);
+		vsm_color(handle, 2);
+		veld[pos] = 2;
+		v_circle(handle, x, y, 13);
+		v_circle(handle, x, y, 6);
+	}
+	vsf_interior(handle, 2);
+	vsl_type(handle, 1);
+	vswr_mode(handle, 1);
+#else
+	board_draw_piece(handle, pos, piece);
+	veld[pos] = piece;
+#endif
 }
 
 
-static void tekenzwartedam(int handle, int plaats)
+/* drawing white */
+static void tekenwittedam(int handle, int place)
 {
- verwijderschijf(handle,plaats);vswr_mode(handle,1);
- pxyarray[0]=posx[plaats]-15;pxyarray[1]=posy[plaats]-10;
- pxyarray[2]=posx[plaats]+15;pxyarray[3]=posy[plaats]+10;
- vsf_interior(handle,2);vsf_style(handle,8);vsl_type(handle,7);
- vr_recfl(handle,pxyarray);vsl_type(handle,1);vswr_mode(handle,3);
- pxyarray[0]=posx[plaats]-15;pxyarray[1]=posy[plaats];
- pxyarray[2]=posx[plaats]+15;pxyarray[3]=posy[plaats];
- v_pline(handle,2,pxyarray);
- veld[plaats]=3;
+	remove_piece(handle, place);
+
+	vsf_interior(handle, FIS_HOLLOW);
+	vsf_style(handle, 8);
+	vsl_type(handle, SOLID);
+
+	pxyarray[0] = posx[place] - 15;
+	pxyarray[1] = posy[place] - 10;
+	pxyarray[2] = posx[place] + 15;
+	pxyarray[3] = posy[place] + 10;
+	vr_recfl(handle, pxyarray);
+
+	pxyarray[0] = posx[place] - 15;
+	pxyarray[1] = posy[place];
+	pxyarray[2] = posx[place] + 15;
+	pxyarray[3] = posy[place];
+	v_pline(handle, 2, pxyarray);
+
+	veld[place] = PIECE_LIGHT_KING;
 }
 
 
+/* drawing black */
+static void tekenzwartedam(int handle, int place)
+{
+	remove_piece(handle, place);
 
-static void verwijderschijf(int handle, int plek)
-{ int pxyarray[4];
-  vsf_interior(handle,2);vswr_mode(handle,1);
-  vsf_style(handle,4);/*vsf_color(handle,4);*/
-  pxyarray[0]=posx[plek]-20;pxyarray[1]=posy[plek]-20;
-  pxyarray[2]=posx[plek]+20;pxyarray[3]=posy[plek]+20;
-  v_bar(handle,pxyarray);veld[plek]=4;
+	vsf_interior(handle, FIS_PATTERN);
+	vsf_style(handle, 8);
+	vsl_type(handle, USERLINE);
+	vswr_mode(handle, MD_REPLACE);
+
+	pxyarray[0] = posx[place] - 15;
+	pxyarray[1] = posy[place] - 10;
+	pxyarray[2] = posx[place] + 15;
+	pxyarray[3] = posy[place] + 10;
+	vr_recfl(handle, pxyarray);
+
+	vsl_type(handle, SOLID);
+	vswr_mode(handle, MD_XOR);
+
+	pxyarray[0] = posx[place] - 15;
+	pxyarray[1] = posy[place];
+	pxyarray[2] = posx[place] + 15;
+	pxyarray[3] = posy[place];
+	v_pline(handle, 2, pxyarray);
+
+	veld[place] = PIECE_DARK_KING;
 }
 
-static void doewzet(int handle, int van, int naar)
-{ int pstatus = 0,x,y,tel;
-/*nogeens:*/ while (pstatus!=1) vq_mouse(handle,&pstatus,&x,&y);
-while (pstatus!=0) vq_mouse(handle,&pstatus,&x,&y);
-for (tel=1;tel<51;tel++) {if(( ((posx[tel]-21)<x)&&(x<(posx[tel]+21)) )&&
-                     ( ((posy[tel]-21)<y)&&(y<(posy[tel]+21)) )) van=tel;};
-if(veld[van]==1){wittedamzet(handle);return;};
-while (pstatus!=1) vq_mouse(handle,&pstatus,&x,&y);
-while (pstatus!=0) vq_mouse(handle,&pstatus,&x,&y);
-for (tel=1;tel<51;tel++) {if(( ((posx[tel]-21)<x)&&(x<(posx[tel]+21)) )&&
-                     ( ((posy[tel]-21)<y)&&(y<(posy[tel]+21)) )) naar=tel;};
-controleerwzet(van,naar);
-if (ok==0){illegalezet=1;return;};/* goto nogeens;*/
-hide_mouse();
-verwijderschijf(handle,van);
-tekenschijf(handle,naar,0);
-veld[van]=4;veld[naar]=0;
-mz=zettenteller;
-show_mouse();
 
+static void remove_piece(int handle, int place)
+{
+	int pxyarray[4];
+
+	vsf_interior(handle, FIS_PATTERN);
+	vsf_style(handle, 4);
+	vswr_mode(handle, MD_REPLACE);
+	/*vsf_color(handle,4);*/
+
+	pxyarray[0] = posx[place] - 20;
+	pxyarray[1] = posy[place] - 20;
+	pxyarray[2] = posx[place] + 20;
+	pxyarray[3] = posy[place] + 20;
+	v_bar(handle, pxyarray);
+
+	veld[place] = PIECE_NONE;
 }
 
-static void controleerwzet(int van, int naar)
-{ ok=0;
-if (lv[van]==naar) ok=1;
-if (rv[van]==naar) ok=1;
-if (veld[van]!=0) ok=0;
-if (veld[naar]!=4) ok=0;
 
+/* ??? put */
+static void doewzet(int handle, int from, int to)
+{
+	int pstatus = 0, x, y, tel;
+
+	while (pstatus != 1)
+		vq_mouse(handle, &pstatus, &x, &y);
+	while (pstatus != 0)
+		vq_mouse(handle, &pstatus, &x, &y);
+
+	for (tel = 1; tel < 51; tel++)
+	{
+		if( (posx[tel] - 21) < x && x < (posx[tel] + 21) &&
+			(posy[tel] - 21) < y && y < (posy[tel] + 21) )
+		{
+			from = tel;
+		}
+	}
+	if (veld[from] == PIECE_LIGHT_KING)
+	{
+		/* white insert */
+		wittedamzet(handle);
+		return;
+	}
+
+	while (pstatus != 1)
+		vq_mouse(handle, &pstatus, &x, &y);
+	while (pstatus != 0)
+		vq_mouse(handle, &pstatus, &x, &y);
+
+	for (tel = 1; tel < 51; tel++)
+	{
+		if( (posx[tel] - 21) < x && x < (posx[tel] + 21) &&
+			(posy[tel] - 21) < y && y < (posy[tel] + 21) )
+		{
+			to = tel;
+		}
+	}
+
+	controleerwzet(from, to);
+	if (ok == 0)
+	{
+		illegalezet = 1;
+		return;
+	}
+	hide_mouse();
+	remove_piece(handle, from);
+	draw_piece(handle, to, PIECE_LIGHT_MAN);
+	veld[from] = PIECE_NONE;
+	veld[to] = PIECE_LIGHT_MAN;
+	mz = zettenteller;
+	show_mouse();
 }
+
+
+static void controleerwzet(int from, int to)
+{
+	ok = 0;
+	if (lv[from] == to)
+		ok = 1;
+	if (rv[from] == to)
+		ok = 1;
+	if (veld[from] != 0)
+		ok = 0;
+	if (veld[to] != 4)
+		ok = 0;
+}
+
 
 static void wittedamzet(int handle)
-{ int pstatus = 0,x,y,ok;
-/*while (pstatus!=1) vq_mouse(handle,&pstatus,&x,&y);*/
-/*while (pstatus!=0) vq_mouse(handle,&pstatus,&x,&y);*/
-teller=0;bitje=1;
-waarismuis(handle);buf[teller]=daar;hulpje=daar;
-while (pstatus!=1) 
-  {waarismuis(handle);
-   if((hulpje!=daar)&&(veld[hulpje]==1))
-     {hide_mouse();verwijderschijf(handle,hulpje);veld[buf[0]]=1;show_mouse();};
-   if(veld[daar]==leeg)
-     {hide_mouse();bitje=1;tekenschijf(handle,daar,1);show_mouse();};
-   hulpje=daar;
-   if((veld[daar]==4)&&(buf[teller]!=daar))
-     {teller++;buf[teller]=daar;if(teller>20) teller=0;}
-   vq_mouse(handle,&pstatus,&x,&y);
-  };   
-waarismuis(handle);teller++;buf[teller]=daar;
-goed=0;ok=1;
-for(kut=1;kut<teller;kut++)
-    {if((buf[kut]==rv[buf[kut-1]])&&(ok==1)){ok=1;goto h;};ok=0;h:;}; 
-if(ok==1)goed=1;ok=1;
-for(kut=1;kut<teller;kut++)
-    {if((buf[kut]==lv[buf[kut-1]])&&(ok==1)){ok=1;goto i;};ok=0;i:;}; 
-if(ok==1)goed=1;ok=1;
-for(kut=1;kut<teller;kut++)
-    {if((buf[kut]==ra[buf[kut-1]])&&(ok==1)){ok=1;goto j;};ok=0;j:;}; 
-if(ok==1)goed=1;ok=1;
-for(kut=1;kut<teller;kut++)
-    {if((buf[kut]==la[buf[kut-1]])&&(ok==1)){ok=1;goto k;};ok=0;k:;}; 
-if(ok==1)goed=1;ok=goed;
-if(veld[buf[0]]!=1)ok=0;/*if(veld[buf[0]]==veld[buf[teller]])ok=0;*/
-/*if(veld[buf[teller]]!=4)ok=0;*/
-if (ok==0){illegalezet=1;return;}/* goto klaasje;*/
-hide_mouse();
-verwijderschijf(handle,buf[0]);tekenwittedam(handle,buf[teller]);
-/*for (kut=0;kut<=teller;kut++)tekenwittedam(handle,buf[kut]);*/
-veld[buf[teller]]=1;
-show_mouse();mz=zettenteller;
+{
+	int pstatus = 0, x, y, ok;
+
+	/*while( pstatus != 1 )
+		vq_mouse(handle, &pstatus, &x, &y);
+	while( pstatus != 0 )
+		vq_mouse(handle, &pstatus, &x, &y);*/
+	teller = 0;
+	bitje = 1;
+	where_is_mouse(handle);
+	buf[teller] = daar;
+	hulpje = daar;
+	while( pstatus != 1 )
+	{
+		where_is_mouse(handle);
+		if( hulpje != daar && veld[hulpje] == PIECE_LIGHT_KING )
+		{
+			hide_mouse();
+			remove_piece(handle, hulpje);
+			veld[buf[0]] = PIECE_LIGHT_KING;
+			show_mouse();
+		}
+		if( veld[daar] == PIECE_NONE )
+		{
+			hide_mouse();
+			bitje = 1;
+			draw_piece(handle, daar, PIECE_LIGHT_KING);
+			show_mouse();
+		}
+		hulpje = daar;
+		if( veld[daar] == PIECE_NONE && buf[teller] != daar )
+		{
+			teller++;
+			buf[teller] = daar;
+			if( teller > 20 )
+				teller = 0;
+		}
+		vq_mouse(handle, &pstatus, &x, &y);
+	}
+	where_is_mouse(handle);
+	teller++;
+	buf[teller] = daar;
+	goed = 0;
+	ok = 1;
+	for( kut = 1; kut < teller; kut++ )
+	{
+		if( buf[kut] == rv[buf[kut - 1]] && ok == 1 )
+		{
+			ok = 1;
+			goto h;
+		}
+		ok = 0;
+h:;
+	}
+	if( ok == 1 )
+		goed = 1;
+	ok = 1;
+	for( kut = 1; kut < teller; kut++ )
+	{
+		if( (buf[kut] == lv[buf[kut - 1]]) && (ok == 1) )
+		{
+			ok = 1;
+			goto i;
+		}
+		ok = 0;
+i:;
+	}
+	if( ok == 1 )
+		goed = 1;
+	ok = 1;
+	for( kut = 1; kut < teller; kut++ )
+	{
+		if( (buf[kut] == ra[buf[kut - 1]]) && (ok == 1) )
+		{
+			ok = 1;
+			goto j;
+		}
+		ok = 0;
+j:;
+	}
+	if( ok == 1 )
+		goed = 1;
+	ok = 1;
+	for( kut = 1; kut < teller; kut++ )
+	{
+		if( (buf[kut] == la[buf[kut - 1]]) && (ok == 1) )
+		{
+			ok = 1;
+			goto k;
+		}
+		ok = 0;
+k:;
+	}
+	if( ok == 1)
+		goed = 1;
+	ok = goed;
+	if( veld[buf[0]] != PIECE_LIGHT_KING )
+		ok = 0;
+	/*if( veld[buf[0]] == veld[buf[teller]] )
+		ok = 0;
+	if( veld[buf[teller]] != PIECE_NONE )
+		ok = 0;*/
+	if( ok == 0 )
+	{
+		illegalezet = 1;
+		return;
+	}
+	/*goto klaasje;*/
+	hide_mouse();
+	remove_piece(handle, buf[0]);
+	tekenwittedam(handle, buf[teller]);
+	/*for( kut = 0; kut <= teller; kut++ )
+		tekenwittedam(handle, buf[kut]);*/
+	veld[buf[teller]] = PIECE_LIGHT_KING;
+	show_mouse();
+	mz = zettenteller;
 }
+
 
 static void doezzet(int handle, int van, int naar)
-{ int pstatus = 0,x,y,tel;
-nogeens: while (pstatus!=1) vq_mouse(handle,&pstatus,&x,&y);
-for (tel=1;tel<51;tel++) {if(( ((posx[tel]-21)<x)&&(x<(posx[tel]+21)) )&&
-                     ( ((posy[tel]-21)<y)&&(y<(posy[tel]+21)) )) van=tel;};
-while (pstatus!=0) vq_mouse(handle,&pstatus,&x,&y);
-for (tel=1;tel<51;tel++) {if(( ((posx[tel]-21)<x)&&(x<(posx[tel]+21)) )&&
-                     ( ((posy[tel]-21)<y)&&(y<(posy[tel]+21)) )) naar=tel;};
-conztroleerzet(van,naar);
-if (ok==0) goto nogeens;
-hide_mouse();
-verwijderschijf(handle,van);
-tekenschijf(handle,naar,2);
-veld[van]=4;veld[naar]=2;
+{
+	int pstatus = 0, x, y, tel;
 
-show_mouse();
+nogeens:
+	while (pstatus != 1)
+		vq_mouse(handle, &pstatus, &x, &y);
 
+	for (tel = 1; tel < 51; tel++)
+	{
+		if( (posx[tel] - 21) < x && x < (posx[tel] + 21) &&
+			(posy[tel] - 21) < y && y < (posy[tel] + 21) )
+		{
+			van = tel;
+		}
+	}
+
+	while (pstatus != 0)
+		vq_mouse(handle, &pstatus, &x, &y);
+
+	for (tel = 1; tel < 51; tel++)
+	{
+		if( (posx[tel] - 21) < x && x < (posx[tel] + 21) &&
+			(posy[tel] - 21) < y && y < (posy[tel] + 21) )
+		{
+			naar = tel;
+		}
+	}
+
+	conztroleerzet(van, naar);
+	if (ok== 0)
+		goto nogeens;
+
+	hide_mouse();
+	remove_piece(handle, van);
+	draw_piece(handle, naar, 2);
+	veld[van] = 4;
+	veld[naar] = 2;
+	show_mouse();
 }
 
-static void conztroleerzet(int van, int naar)
-{ ok=0;
-if (la[van]==naar) ok=1;
-if (ra[van]==naar) ok=1;
-if (veld[van]!=2) ok=0;
-if (veld[naar]!=4) ok=0;
 
+static void conztroleerzet(int from, int to)
+{
+	ok = 0;
+	if (la[from] == to)
+		ok = 1;
+	if (ra[from] == to)
+		ok = 1;
+	if (veld[from] != 2)
+		ok = 0;
+	if (veld[to] != 4)
+		ok = 0;
 }
+
 
 static void witteslag(int handle)
-{ int pstatus = 0,x,y,ok;
-scwitslag(handle);
-/*klaasje:;*/
-while (pstatus!=1) vq_mouse(handle,&pstatus,&x,&y);
-while (pstatus!=0) vq_mouse(handle,&pstatus,&x,&y);
-teller=0;bitje=1;
-waarismuis(handle);buf[teller]=daar;hulpje=daar;buf[teller+1]=veld[daar];
-while (pstatus!=1) 
-  {waarismuis(handle);
-   if((hulpje!=daar)&&(veld[hulpje]==buf[1]))
-     {hide_mouse();verwijderschijf(handle,hulpje);show_mouse();};bitje=0;
-   if(veld[daar]==leeg)
-     {hide_mouse();bitje=1;tekenschijf(handle,daar,buf[1]);show_mouse();};
-   hulpje=daar;
-   if(((veld[daar]==2)||(veld[daar]==3))&&(buf[teller]!=daar))
-     {teller+=2;buf[teller]=daar;buf[teller+1]=veld[daar];
-      if(teller>20) teller=0;}
-   vq_mouse(handle,&pstatus,&x,&y);
-  };   
-while(pstatus!=0)vq_mouse(handle,&pstatus,&x,&y);
-waarismuis(handle);teller+=2;buf[teller]=daar;buf[teller+1]=veld[daar];
-if (teller!=mixscore+2)
- {illegalezet=1;hide_mouse();tekenschijf(handle,buf[0],buf[1]);
-  verwijderschijf(handle,buf[teller]/*,buf[teller+1]*/);show_mouse();return;};  
-goed=0;
-for (kut=1;kut<=aantal;kut++)
-    {ok=1;for (cont=0;cont<=(mixscore+2);cont++)
-              {if (buf[cont]!=wslag[kut][cont]) ok=0;};
-     if(ok==1) goed=1;
-    };
-if (goed==0){illegalezet=1;return;}/* goto klaasje;*/
-hide_mouse();
-dowheenslag(handle,mixscore,buf);
-show_mouse();mz=zettenteller;
+{
+	int pstatus = 0, x, y, ok;
+
+	scwitslag(handle);
+	/*klaasje:;*/
+	while( pstatus != 1 )
+		vq_mouse(handle, &pstatus, &x, &y);
+	while( pstatus != 0 )
+		vq_mouse(handle, &pstatus, &x, &y);
+	teller = 0;
+	bitje = 1;
+	where_is_mouse(handle);
+	buf[teller] = daar;
+	hulpje = daar;
+	buf[teller + 1] = veld[daar];
+	while( pstatus != 1 )
+	{
+		where_is_mouse(handle);
+		if( hulpje != daar && veld[hulpje] == buf[1] )
+		{
+			hide_mouse();
+			remove_piece(handle, hulpje);
+			show_mouse();
+		}
+		bitje = 0;
+		if( veld[daar] == PIECE_NONE )
+		{
+			hide_mouse();
+			bitje = 1;
+			draw_piece(handle, daar, buf[1]);
+			show_mouse();
+		}
+		hulpje = daar;
+		if( (veld[daar] == 2 || veld[daar] == 3) && buf[teller] != daar )
+		{
+			teller += 2;
+			buf[teller] = daar;
+			buf[teller + 1] = veld[daar];
+			if( teller > 20 )
+				teller = 0;
+		}
+		vq_mouse(handle, &pstatus, &x, &y);
+	}
+	while( pstatus != 0 )
+		vq_mouse(handle, &pstatus, &x, &y);
+	where_is_mouse(handle);
+	teller += 2;
+	buf[teller] = daar;
+	buf[teller + 1] = veld[daar];
+	if( teller != mixscore + 2 )
+	{
+		illegalezet = 1;
+		hide_mouse();
+		draw_piece(handle, buf[0], buf[1]);
+		remove_piece(handle, buf[teller]/*,buf[teller+1]*/);
+		show_mouse();
+		return;
+	}
+	goed = 0;
+	for( kut = 1; kut <= aantal; kut++ )
+	{
+		ok = 1;
+		for( cont = 0; cont <= mixscore + 2; cont++ )
+		{
+			if( buf[cont] != wslag[kut][cont] )
+				ok = 0;
+		}
+		if( ok == 1 )
+			goed = 1;
+	}
+	if( goed == 0 )
+	{
+		illegalezet = 1;
+		return;
+	}
+	/*goto klaasje;*/
+	hide_mouse();
+	dowheenslag(handle, mixscore, buf);
+	show_mouse();
+	mz = zettenteller;
 }
+
 
 static void zwatteslag(int handle)
-{ int pstatus = 0,x,y,ok;
-sczwartslag(handle);
+{
+	int pstatus = 0, x, y, ok;
+
+	sczwartslag(handle);
 bolle:;
-while (pstatus!=1) vq_mouse(handle,&pstatus,&x,&y);
-teller=0;
-waarismuis(handle);buf[teller]=daar;hulpje=daar;
-while (pstatus!=0) 
-  {waarismuis(handle);
-   hulpje=daar;
-   if((veld[daar]<2)&&(buf[teller]!=daar))
-     {teller+=2;buf[teller]=daar;if(teller>20) teller=0;}
-   vq_mouse(handle,&pstatus,&x,&y);
-  };   
-waarismuis(handle);teller+=2;buf[teller]=daar;
-if (teller!=mixscore+2) goto bolle;
-goed=0;
-for (kut=1;kut<=aantal;kut++)
-    {ok=1;for (cont=0;cont<=(mixscore+2);cont+=2)
-              {if (buf[cont]!=zslag[kut][cont]) ok=0;};
-     if(ok==1) goed=1;
-    };
-if (goed==0) goto bolle;
-hide_mouse();
-dozwheenslag(handle,mixscore,buf);
-show_mouse();
+	while( pstatus != 1 )
+		vq_mouse(handle, &pstatus, &x, &y);
+	teller = 0;
+	where_is_mouse(handle);
+	buf[teller] = daar;
+	hulpje = daar;
+	while( pstatus != 0 )
+	{
+		where_is_mouse(handle);
+		hulpje = daar;
+		if( veld[daar] < 2 && buf[teller] != daar )
+		{
+			teller += 2;
+			buf[teller] = daar;
+			if( teller > 20 )
+				teller = 0;
+		}
+		vq_mouse(handle, &pstatus, &x, &y);
+	}
+	where_is_mouse(handle);
+	teller += 2;
+	buf[teller] = daar;
+	if( teller != mixscore + 2)
+		goto bolle;
+	goed = 0;
+	for( kut = 1; kut <= aantal; kut++ )
+	{
+		ok = 1;
+		for( cont = 0; cont <= (mixscore + 2); cont += 2 )
+		{
+			if( buf[cont] != zslag[kut][cont] )
+				ok = 0;
+		}
+		if( ok == 1 )
+			goed = 1;
+	}
+	if( goed == 0 )
+		goto bolle;
+	hide_mouse();
+	dozwheenslag(handle, mixscore, buf);
+	show_mouse();
 }
 
 
-static void waarismuis(int handle)
-{int pstatus,x,y,tel;
-/*jopie:;*/ vq_mouse(handle,&pstatus,&x,&y);
-for (tel=1;tel<51;tel++) 
-    {if(( ((posx[tel]-21)<x)&&(x<(posx[tel]+21)) )&&
-        ( (posy[tel]<(y+21))&&(y<(posy[tel]+21)) )) daar=tel;
-    };
+static void where_is_mouse(int handle)
+{
+	int pstatus, x, y, i;
+
+	vq_mouse(handle, &pstatus, &x, &y);
+	for( i = 1; i < 51; i++ ) 
+	{
+		if( (posx[i] - 21) < x && x < (posx[i] + 21) &&
+			posy[i] < (y + 21) && y < (posy[i] + 21) )
+		{
+			daar = i;
+		}
+	}
 }
+
 
 static void scanwslaan(int hok)
 {int slachtoffer;
@@ -435,13 +732,13 @@ if(((veld[la[hok]]==2)||(veld[la[hok]]==3))&&(veld[lla[hok]]==4))
 static void scanlvwdamslag(int hok)
 {int wijs,helpje,bitje,slachtoffer;
  wijs=lv[hok];
- a: ;   if(veld[wijs]==leeg){wijs=lv[wijs];goto a;};
- if(((veld[wijs]==zwartesteen)||(veld[wijs]==zwartedam))
-   &&(veld[lv[wijs]]==leeg)&&(slagveld[wijs]==0)) 
+ a: ;   if(veld[wijs]==PIECE_NONE){wijs=lv[wijs];goto a;};
+ if(((veld[wijs]==PIECE_DARK_MAN)||(veld[wijs]==PIECE_DARK_KING))
+   &&(veld[lv[wijs]]==PIECE_NONE)&&(slagveld[wijs]==0)) 
   {slachtoffer=veld[wijs];
    score=score+2;array[score]=wijs;slagveld[wijs]=1;wijs=helpje=lv[wijs];
    array[score+1]=slachtoffer;array[score+2]=wijs;bitje=0;
-   while(veld[wijs]==leeg)
+   while(veld[wijs]==PIECE_NONE)
     {scanlawdamslag(wijs);
      if(bitje==0){scanlvwdamslag(wijs);bitje=1;};
      scanrvwdamslag(wijs);
@@ -449,7 +746,7 @@ static void scanlvwdamslag(int hok)
     };wijs=helpje;
    if(score>=maxscore)
     {if (score>maxscore){aantal=0;maxscore=score;};wijs=helpje;
-     while(veld[wijs]==leeg)
+     while(veld[wijs]==PIECE_NONE)
        { aantal++;for(kat=0;kat<=score+1;kat++)
                  {
                   wslag[aantal][kat]=array[kat];
@@ -465,13 +762,13 @@ static void scanlvwdamslag(int hok)
 static void scanrvwdamslag(int hok)
 {int wijs,helpje,bitje,slachtoffer;
  wijs=rv[hok];
- a: ;   if(veld[wijs]==leeg){wijs=rv[wijs];goto a;};
- if(((veld[wijs]==zwartesteen)||(veld[wijs]==zwartedam))
-   &&(veld[rv[wijs]]==leeg)&&(slagveld[wijs]==0)) 
+ a: ;   if(veld[wijs]==PIECE_NONE){wijs=rv[wijs];goto a;};
+ if(((veld[wijs]==PIECE_DARK_MAN)||(veld[wijs]==PIECE_DARK_KING))
+   &&(veld[rv[wijs]]==PIECE_NONE)&&(slagveld[wijs]==0)) 
   {slachtoffer=veld[wijs];
    score=score+2;array[score]=wijs;slagveld[wijs]=1;wijs=helpje=rv[wijs];
    array[score+1]=slachtoffer;array[score+2]=wijs;bitje=0;
-   while(veld[wijs]==leeg)
+   while(veld[wijs]==PIECE_NONE)
     {scanlvwdamslag(wijs);
      if(bitje==0){scanrvwdamslag(wijs);bitje=1;};
      scanrawdamslag(wijs);
@@ -479,7 +776,7 @@ static void scanrvwdamslag(int hok)
     };wijs=helpje;
    if(score>=maxscore)
     {if (score>maxscore){aantal=0;maxscore=score;};wijs=helpje;
-     while(veld[wijs]==leeg)
+     while(veld[wijs]==PIECE_NONE)
        { aantal++;for(kat=0;kat<=score+1;kat++)
                  {
                   wslag[aantal][kat]=array[kat];
@@ -495,13 +792,13 @@ static void scanrvwdamslag(int hok)
 static void scanlawdamslag(int hok)
 {int wijs,helpje,bitje,slachtoffer;
  wijs=la[hok];
- a: ;   if(veld[wijs]==leeg){wijs=la[wijs];goto a;};
- if(((veld[wijs]==zwartesteen)||(veld[wijs]==zwartedam))
-   &&(veld[la[wijs]]==leeg)&&(slagveld[wijs]==0)) 
+ a: ;   if(veld[wijs]==PIECE_NONE){wijs=la[wijs];goto a;};
+ if(((veld[wijs]==PIECE_DARK_MAN)||(veld[wijs]==PIECE_DARK_KING))
+   &&(veld[la[wijs]]==PIECE_NONE)&&(slagveld[wijs]==0)) 
   {slachtoffer=veld[wijs];
    score=score+2;array[score]=wijs;slagveld[wijs]=1;wijs=helpje=la[wijs];
    array[score+1]=slachtoffer;array[score+2]=wijs;bitje=0;
-   while(veld[wijs]==leeg)
+   while(veld[wijs]==PIECE_NONE)
     {scanlvwdamslag(wijs);
      if(bitje==0){scanlawdamslag(wijs);bitje=1;};
      scanrawdamslag(wijs);
@@ -509,7 +806,7 @@ static void scanlawdamslag(int hok)
     };wijs=helpje;
    if(score>=maxscore)
     {if (score>maxscore){aantal=0;maxscore=score;};wijs=helpje;
-     while(veld[wijs]==leeg)
+     while(veld[wijs]==PIECE_NONE)
        { aantal++;for(kat=0;kat<=score+1;kat++)
                  {
                   wslag[aantal][kat]=array[kat];
@@ -525,13 +822,13 @@ static void scanlawdamslag(int hok)
 static void scanrawdamslag(int hok)
 {int wijs,helpje,bitje,slachtoffer;
  wijs=ra[hok];
- a: ;   if(veld[wijs]==leeg){wijs=ra[wijs];goto a;};
- if(((veld[wijs]==zwartesteen)||(veld[wijs]==zwartedam))
-   &&(veld[ra[wijs]]==leeg)&&(slagveld[wijs]==0)) 
+ a: ;   if(veld[wijs]==PIECE_NONE){wijs=ra[wijs];goto a;};
+ if(((veld[wijs]==PIECE_DARK_MAN)||(veld[wijs]==PIECE_DARK_KING))
+   &&(veld[ra[wijs]]==PIECE_NONE)&&(slagveld[wijs]==0)) 
   {slachtoffer=veld[wijs];
    score=score+2;array[score]=wijs;slagveld[wijs]=1;wijs=helpje=ra[wijs];
    array[score+1]=slachtoffer;array[score+2]=wijs;bitje=0;
-   while(veld[wijs]==leeg)
+   while(veld[wijs]==PIECE_NONE)
     {scanlawdamslag(wijs);
      if(bitje==0){scanrawdamslag(wijs);bitje=1;};
      scanrvwdamslag(wijs);
@@ -539,7 +836,7 @@ static void scanrawdamslag(int hok)
     };wijs=helpje;
    if(score>=maxscore)
     {if (score>maxscore){aantal=0;maxscore=score;};wijs=helpje;
-     while(veld[wijs]==leeg)
+     while(veld[wijs]==PIECE_NONE)
        { aantal++;for(kat=0;kat<=score+1;kat++)
                  {
                   wslag[aantal][kat]=array[kat];
@@ -626,13 +923,13 @@ if(((veld[la[hok]]==0)||(veld[la[hok]]==1))&&(veld[lla[hok]]==4))
 static void scanlvzdamslag(int hok)
 {int wijs,helpje,bitje,slachtoffer;
  wijs=lv[hok];
- a: ;   if(veld[wijs]==leeg){wijs=lv[wijs];goto a;};
- if(((veld[wijs]==wittesteen)||(veld[wijs]==wittedam))
-   &&(veld[lv[wijs]]==leeg)&&(slagveld[wijs]==0)) 
+ a: ;   if(veld[wijs]==PIECE_NONE){wijs=lv[wijs];goto a;};
+ if(((veld[wijs]==PIECE_LIGHT_MAN)||(veld[wijs]==PIECE_LIGHT_KING))
+   &&(veld[lv[wijs]]==PIECE_NONE)&&(slagveld[wijs]==0)) 
   {slachtoffer=veld[wijs];
    score=score+2;array[score]=wijs;slagveld[wijs]=1;wijs=helpje=lv[wijs];
    array[score+1]=slachtoffer;array[score+2]=wijs;bitje=0;
-   while(veld[wijs]==leeg)
+   while(veld[wijs]==PIECE_NONE)
     {scanlazdamslag(wijs);
      if(bitje==0){scanlvzdamslag(wijs);bitje=1;};
      scanrvzdamslag(wijs);
@@ -640,7 +937,7 @@ static void scanlvzdamslag(int hok)
     };wijs=helpje;
    if(score>=maxscore)
     {if (score>maxscore){aantal=0;maxscore=score;};wijs=helpje;
-     while(veld[wijs]==leeg)
+     while(veld[wijs]==PIECE_NONE)
        { aantal++;for(kat=0;kat<=score+1;kat++)
                  {
                   zslag[aantal][kat]=array[kat];
@@ -656,13 +953,13 @@ static void scanlvzdamslag(int hok)
 static void scanrvzdamslag(int hok)
 {int wijs,helpje,bitje,slachtoffer;
  wijs=rv[hok];
- a: ;   if(veld[wijs]==leeg){wijs=rv[wijs];goto a;};
- if(((veld[wijs]==wittesteen)||(veld[wijs]==wittedam))
-   &&(veld[rv[wijs]]==leeg)&&(slagveld[wijs]==0)) 
+ a: ;   if(veld[wijs]==PIECE_NONE){wijs=rv[wijs];goto a;};
+ if(((veld[wijs]==PIECE_LIGHT_MAN)||(veld[wijs]==PIECE_LIGHT_KING))
+   &&(veld[rv[wijs]]==PIECE_NONE)&&(slagveld[wijs]==0)) 
   {slachtoffer=veld[wijs];
    score=score+2;array[score]=wijs;slagveld[wijs]=1;wijs=helpje=rv[wijs];
    array[score+1]=slachtoffer;array[score+2]=wijs;bitje=0;
-   while(veld[wijs]==leeg)
+   while(veld[wijs]==PIECE_NONE)
     {scanlvzdamslag(wijs);
      if(bitje==0){scanrvzdamslag(wijs);bitje=1;};
      scanrazdamslag(wijs);
@@ -670,7 +967,7 @@ static void scanrvzdamslag(int hok)
     };wijs=helpje;
    if(score>=maxscore)
     {if (score>maxscore){aantal=0;maxscore=score;};wijs=helpje;
-     while(veld[wijs]==leeg)
+     while(veld[wijs]==PIECE_NONE)
        { aantal++;for(kat=0;kat<=score+1;kat++)
                  {
                   zslag[aantal][kat]=array[kat];
@@ -686,13 +983,13 @@ static void scanrvzdamslag(int hok)
 static void scanlazdamslag(int hok)
 {int wijs,helpje,bitje,slachtoffer;
  wijs=la[hok];
- a: ;   if(veld[wijs]==leeg){wijs=la[wijs];goto a;};
- if(((veld[wijs]==wittesteen)||(veld[wijs]==wittedam))
-   &&(veld[la[wijs]]==leeg)&&(slagveld[wijs]==0)) 
+ a: ;   if(veld[wijs]==PIECE_NONE){wijs=la[wijs];goto a;};
+ if(((veld[wijs]==PIECE_LIGHT_MAN)||(veld[wijs]==PIECE_LIGHT_KING))
+   &&(veld[la[wijs]]==PIECE_NONE)&&(slagveld[wijs]==0)) 
   {slachtoffer=veld[wijs];
    score=score+2;array[score]=wijs;slagveld[wijs]=1;wijs=helpje=la[wijs];
    array[score+1]=slachtoffer;array[score+2]=wijs;bitje=0;
-   while(veld[wijs]==leeg)
+   while(veld[wijs]==PIECE_NONE)
     {scanlvzdamslag(wijs);
      if(bitje==0){scanlazdamslag(wijs);bitje=1;};
      scanrazdamslag(wijs);
@@ -700,7 +997,7 @@ static void scanlazdamslag(int hok)
     };wijs=helpje;
    if(score>=maxscore)
     {if (score>maxscore){aantal=0;maxscore=score;};wijs=helpje;
-     while(veld[wijs]==leeg)
+     while(veld[wijs]==PIECE_NONE)
        { aantal++;for(kat=0;kat<=score+1;kat++)
                  {
                   zslag[aantal][kat]=array[kat];
@@ -716,13 +1013,13 @@ static void scanlazdamslag(int hok)
 static void scanrazdamslag(int hok)
 {int wijs,helpje,bitje,slachtoffer;
  wijs=ra[hok];
- a: ;   if(veld[wijs]==leeg){wijs=ra[wijs];goto a;};
- if(((veld[wijs]==wittesteen)||(veld[wijs]==wittedam))
-   &&(veld[ra[wijs]]==leeg)&&(slagveld[wijs]==0)) 
+ a: ;   if(veld[wijs]==PIECE_NONE){wijs=ra[wijs];goto a;};
+ if(((veld[wijs]==PIECE_LIGHT_MAN)||(veld[wijs]==PIECE_LIGHT_KING))
+   &&(veld[ra[wijs]]==PIECE_NONE)&&(slagveld[wijs]==0)) 
   {slachtoffer=veld[wijs];
    score=score+2;array[score]=wijs;slagveld[wijs]=1;wijs=helpje=ra[wijs];
    array[score+1]=slachtoffer;array[score+2]=wijs;bitje=0;
-   while(veld[wijs]==leeg)
+   while(veld[wijs]==PIECE_NONE)
     {scanlazdamslag(wijs);
      if(bitje==0){scanrazdamslag(wijs);bitje=1;};
      scanrvzdamslag(wijs);
@@ -730,7 +1027,7 @@ static void scanrazdamslag(int hok)
     };wijs=helpje;
    if(score>=maxscore)
     {if (score>maxscore){aantal=0;maxscore=score;};wijs=helpje;
-     while(veld[wijs]==leeg)
+     while(veld[wijs]==PIECE_NONE)
        { aantal++;for(kat=0;kat<=score+1;kat++)
                  {
                   zslag[aantal][kat]=array[kat];
@@ -746,26 +1043,49 @@ static void scanrazdamslag(int hok)
 
 static void sczwartslag(int handle)
 {
-score=0;maxscore=0;mixscore=0;aantal=0;
-for (tel=1;tel<51;tel++){if (veld[tel]==2){veld[tel]=4;array[0]=tel;
-                          array[1]=2;scanzwslaan(tel);veld[tel]=2;};
-                         if (veld[tel]==3){veld[tel]=4;array[0]=tel;
-                          array[1]=3;
-                          scanlvzdamslag(tel);scanrvzdamslag(tel);
-                          scanlazdamslag(tel);scanrazdamslag(tel);
-                          veld[tel]=3;};
-                         if (maxscore>mixscore) mixscore=maxscore;                 
-                         count=0;};score=maxscore;
-if(aantal>5)aantal=5;
+	score = 0;
+	maxscore = 0;
+	mixscore = 0;
+	aantal = 0;
+	for (tel = 1; tel < 51; tel++)
+	{
+		if (veld[tel] == 2)
+		{
+			veld[tel] = 4;
+			array[0] = tel;
+			array[1] = 2;
+			scanzwslaan(tel);
+			veld[tel] = 2;
+		}
+		if (veld[tel] == 3)
+		{
+			veld[tel] = 4;
+			array[0] = tel;
+			array[1] = 3;
+			scanlvzdamslag(tel);
+			scanrvzdamslag(tel);
+			scanlazdamslag(tel);
+			scanrazdamslag(tel);
+			veld[tel] = 3;
+		}
+		if (maxscore > mixscore)
+			mixscore = maxscore;
+		count = 0;
+	}
+	score = maxscore;
+	if (aantal > 5)
+		aantal = 5;
 }
 
+
 static void bestzwart(int handle)
-{register zwartaantal,witaantal,zmixscore,wmixscore,teller,/*cunt,skore[10],*/
-     pipo,tul,zwarray[6][25],warray[6][25],num,zum,wfrom,wto,zfrom,zto;
-     
+{
+	register zwartaantal, witaantal, zmixscore, wmixscore, teller,
+		pipo, tul, zwarray[6][25], warray[6][25], num, zum, wfrom, wto, zfrom, zto;
 
-
-diepte++;if(diepte<2)witgezet=0;
+	diepte++;
+	if (diepte < 2)
+		witgezet = 0;
 minzwart[diepte+1]=100;minwit[diepte+1]=100;
 maxzwart[diepte+1]=-100;maxwit[diepte+1]=-100;
 minzwart[diepte]=100;maxzwart[diepte]=-100;       
@@ -1002,180 +1322,257 @@ if (zwartaantal==0)
 /*eind:;*/  diepte--;if(diepte<2)witgezet=0;
 }
 
+
 static void doezwheenslag(int handle, int zixscore, int zwarray[25])
 {
-/*wacht(5);*/
-for(count=0;count<=zixscore;count=count+2)
-   {
-/*    wacht(5);*/veld[zwarray[count]]=4;
-   };
-
-veld[zwarray[zixscore+2]]=zwarray[1];/*wacht(5);*/                       
+	/*wacht(5);*/
+	for (count = 0; count <= zixscore; count += 2)
+	{
+		/*wacht(5);*/
+		veld[zwarray[count]] = 4;
+	}
+	veld[zwarray[zixscore + 2]] = zwarray[1];
+	/*wacht(5);*/                       
 }
+
 
 static void doezwterugslag(int handle, int zixscore, int zwarray[25])
 {
-/*wacht(5);*/
-veld[zwarray[zixscore+2]]=4;
-for(count=zixscore;count>=0;count=count-2)  
-   {
-    veld[zwarray[count]]=zwarray[count+1];
-   };
-/*veld[zwarray[0]]=2;wacht(5);*/
-  
+	/*wacht(5);*/
+	veld[zwarray[zixscore + 2]] = 4;
+	for( count = zixscore; count >= 0; count = count - 2 )
+	{
+		veld[zwarray[count]] = zwarray[count + 1];
+	}
+	/*veld[zwarray[0]] = 2;
+	wacht(5);*/
 }
+
 
 static void doewheenslag(int handle, int wixscore, int warray[25])
 {
-/*wacht(5);*/
-for(count=0;count<=wixscore;count+=2)
-   {
- /*   wacht(5);*/veld[warray[count]]=4;
-   };
-
-veld[warray[wixscore+2]]=warray[1];/*wacht(5);*/                       
+	/*wacht(5);*/
+	for( count = 0; count <= wixscore; count += 2 )
+	{
+		/*wacht(5);*/
+		veld[warray[count]] = PIECE_NONE;
+	}
+	veld[warray[wixscore + 2]] = warray[1];
+	/*wacht(5);*/
 }
+
 
 static void doewterugslag(int handle, int wixscore, int warray[25])
 {
-/*wacht(5);*/
-veld[warray[wixscore+2]]=4;
-for(count=wixscore;count>=0;count-=2)  
-   {
-    veld[warray[count]]=warray[count+1];
-   };
-/*veld[warray[0]]=0;wacht(5);*/
+	/*wacht(5);*/
+	veld[warray[wixscore + 2]] = PIECE_NONE;
+	for( count = wixscore; count >= 0; count -= 2 )
+	{
+		veld[warray[count]] = warray[count + 1];
+	}
+	/*veld[warray[0]] = 0;
+	wacht(5);*/
 }
+
 
 static void doezwheenzet(int handle, int zfrom, int zto)
 {
-veld[zfrom]=4;
-veld[zto]=2;
-if(zto>45)veld[zto]=3;
+	veld[zfrom] = PIECE_NONE;
+	veld[zto] = PIECE_DARK_MAN;
+	if( zto > 45 )
+		veld[zto] = PIECE_DARK_KING;
 }
+
+
 static void doezwtrugzet(int handle, int zfrom, int zto)
 {
-veld[zto]=4;
-veld[zfrom]=2;
+	veld[zto] = PIECE_NONE;
+	veld[zfrom] = PIECE_DARK_MAN;
 }
+
+
 static void doewheenzet(int handle, int wfrom, int wto)
 {
-veld[wfrom]=4;
-veld[wto]=0;
-if(wto<6)veld[wto]=1;
+	veld[wfrom] = PIECE_NONE;
+	veld[wto] = PIECE_LIGHT_MAN;
+	if( wto < 6 )
+		veld[wto] = PIECE_LIGHT_KING;
 }
 static void doewtrugzet(int handle, int wfrom, int wto)
 {
-veld[wto]=4;
-veld[wfrom]=0;
+	veld[wto] = PIECE_NONE;
+	veld[wfrom] = PIECE_LIGHT_MAN;
 }
-
-
-
 
 
 static void dozwheenslag(int handle, int zixscore, int zwarray[25])
 {
-wacht(5);
-for(count=0;count<=zixscore;count=count+2)
-   {verwijderschijf(handle,zwarray[count]);
-    veld[zwarray[count]]=4;wacht(5);
-   };
-tekenschijf(handle,zwarray[zixscore+2],zwarray[1]);
-veld[zwarray[zixscore+2]]=zwarray[1];                       
+	wacht(5);
+	for( count = 0; count <= zixscore; count = count + 2 )
+	{
+		remove_piece(handle, zwarray[count]);
+		veld[zwarray[count]] = PIECE_NONE;
+		wacht(5);
+	};
+	draw_piece(handle, zwarray[zixscore + 2], zwarray[1]);
+	veld[zwarray[zixscore + 2]] = zwarray[1];
 }
+
 
 static void dozwterugslag(int handle, int zixscore, int zwarray[25])
 {
-wacht(5);
-verwijderschijf(handle,zwarray[zixscore+2]);veld[zwarray[zixscore+2]]=4;
-for(count=zixscore;count>=0;count=count-2)  
-   {tekenschijf(handle,zwarray[count],zwarray[count+1]);
-    veld[zwarray[count]]=zwarray[count+1];wacht(5);
-   };
-/*tekenschijf(handle,zwarray[0],2);veld[zwarray[0]]=2;*/wacht(5);
-  
+	wacht(5);
+	remove_piece(handle, zwarray[zixscore + 2]);
+	veld[zwarray[zixscore+2]] = PIECE_NONE;
+	for( count = zixscore; count >= 0; count = count - 2 )
+	{
+		draw_piece(handle, zwarray[count], zwarray[count + 1]);
+		veld[zwarray[count]] = zwarray[count + 1];
+		wacht(5);
+	}
+	/*draw_piece(handle, zwarray[0], 2);
+	veld[zwarray[0]] = 2;*/
+	wacht(5);
 }
+
 
 static void dowheenslag(int handle, int wixscore, int warray[25])
 {
-
-for(count=0;count<=wixscore;count+=2)
-   {verwijderschijf(handle,warray[count]);
-    veld[warray[count]]=4;
-   };
-tekenschijf(handle,warray[wixscore+2],warray[1]);
-veld[warray[wixscore+2]]=warray[1];                       
+	for( count = 0; count <= wixscore; count += 2 )
+	{
+		remove_piece(handle, warray[count]);
+		veld[warray[count]] = PIECE_NONE;
+	}
+	draw_piece(handle, warray[wixscore + 2], warray[1]);
+	veld[warray[wixscore + 2]] = warray[1];
 }
+
 
 static void dowterugslag(int handle, int wixscore, int warray[25])
 {
-wacht(5);
-verwijderschijf(handle,warray[wixscore+2]);veld[warray[wixscore+2]]=4;
-for(count=wixscore;count>=0;count-=2)  
-   {tekenschijf(handle,warray[count],warray[count+1]);
-    veld[warray[count]]=warray[count+1];
-   };
-/*tekenschijf(handle,warray[0],0);veld[warray[0]]=0;*/wacht(5);
+	wacht(5);
+	remove_piece(handle, warray[wixscore + 2]);
+	veld[warray[wixscore + 2]] = PIECE_NONE;
+	for( count = wixscore; count >= 0; count -= 2 )
+	{
+		draw_piece(handle, warray[count], warray[count + 1]);
+		veld[warray[count]] = warray[count + 1];
+	}
+	/*draw_piece(handle, warray[0], 0);
+	veld[warray[0]] = 0;*/
+	wacht(5);
 }
+
 
 static void dozwheenzet(int handle, int zfrom, int zto)
 {
-verwijderschijf(handle,zfrom);veld[zfrom]=4;
-tekenschijf(handle,zto,2);veld[zto]=2;
+	remove_piece(handle, zfrom);
+	veld[zfrom] = PIECE_NONE;
+	draw_piece(handle, zto, PIECE_DARK_MAN);
+	veld[zto] = PIECE_DARK_MAN;
 }
+
+
 static void dozwtrugzet(int handle, int zfrom, int zto)
 {
-verwijderschijf(handle,zto);veld[zto]=4;
-tekenschijf(handle,zfrom,2);veld[zfrom]=2;
+	remove_piece(handle, zto);
+	veld[zto] = PIECE_NONE;
+	draw_piece(handle, zfrom, PIECE_DARK_MAN);
+	veld[zfrom] = PIECE_DARK_MAN;
 }
+
+
 static void dowheenzet(int handle, int wfrom, int wto)
 {
-verwijderschijf(handle,wfrom);veld[wfrom]=4;
-tekenschijf(handle,wto,0);veld[wto]=0;
+	remove_piece(handle, wfrom);
+	veld[wfrom] = PIECE_NONE;
+	draw_piece(handle, wto, PIECE_LIGHT_MAN);
+	veld[wto] = PIECE_LIGHT_MAN;
 }
+
+
 static void dowtrugzet(int handle, int wfrom, int wto)
 {
-verwijderschijf(handle,wto);veld[wto]=4;
-tekenschijf(handle,wfrom,0);veld[wfrom]=0;
+	remove_piece(handle, wto);
+	veld[wto] = PIECE_NONE;
+	draw_piece(handle, wfrom, PIECE_LIGHT_MAN);
+	veld[wfrom] = PIECE_LIGHT_MAN;
 }
+
 
 static void wacht(int til)
 {
-for (tal=0;tal<15000;tal++)
-      {for(c=0;c<til;c++) d=1;}
+	int c, d, tal;
+
+	for( tal = 0; tal < 15000; tal++ )
+	{
+		for( c = 0; c < til; c++ )
+		{
+			d = 1;
+			if( d != 1 ) /* use d to avoid warning */
+				return;
+		}
+	}
 }
 
-static void initbord(int handle)
-{int tel;veld[0]=10;
-for (tel=1;tel<21;tel++) {tekenschijf(handle,tel,2);veld[tel]=2;}
-for (tel=31;tel<51;tel++){tekenschijf(handle,tel,0);veld[tel]=0;}
-for (tel=21;tel<31;tel++){verwijderschijf(handle,tel);veld[tel]=4;}
+
+static void init_board(int handle)
+{
+	int pos = 1;
+
+	veld[0] = 10;
+	while( pos < 21 )
+	{
+		draw_piece(handle, pos, PIECE_DARK_MAN);
+		veld[pos++] = PIECE_DARK_MAN;
+	}
+	while( pos < 31 )
+	{
+		remove_piece(handle, pos);
+		veld[pos++] = PIECE_NONE;
+	}
+	while( pos < 51 )
+	{
+		draw_piece(handle, pos, PIECE_LIGHT_MAN);
+		veld[pos++] = PIECE_LIGHT_MAN;
+	}
 }
 
-static void tekenveld(int handle)
-{int tel;
-for (tel=1;tel<51;tel++)
-       {if (veld[tel]==2) tekenschijf(handle,tel,2);
-        if (veld[tel]==0) tekenschijf(handle,tel,0);
-        if (veld[tel]==4) verwijderschijf(handle,tel);
-       }
-}
+/* drawing field */
+/*static void tekenveld(int handle)
+{
+	int pos;
 
+	for( pos = 1; pos < 51; pos++ )
+	{
+		if( veld[pos] == PIECE_DARK_MAN )
+			draw_piece(handle, pos, PIECE_DARK_MAN);
+		if( veld[pos] == PIECE_LIGHT_MAN )
+			draw_piece(handle, pos, PIECE_LIGHT_MAN);
+		if( veld[pos] == PIECE_NONE)
+			remove_piece(handle, pos);
+	}
+}*/
+
+/* most neighbors black */
 static void meesteburenzwart(int handle)
 {
 	maxvan = bestvan[1];
 	maxnaar = bestnaar[1];
-	/*goto fietsen;*/
-	/* if(moizet>5){maxvan=bestvan[moizet-4];maxnaar=bestnaar[moizet-4];};*/
+/*	goto fietsen;
+	if( moizet > 5 )
+	{
+		maxvan = bestvan[moizet - 4];
+		maxnaar = bestnaar[moizet - 4];
+	}*/
 	maxaantburen = -1;
 	wisselbitje = -wisselbitje;
-	if (wisselbitje == 1)
+	if( wisselbitje == 1 )
 	{
 		anfang = 1;
 		ende = moizet;
 	}
-	if (wisselbitje == -1)
+	if( wisselbitje == -1 )
 	{
 		anfang = moizet;
 		ende = 0;
@@ -1183,27 +1580,34 @@ static void meesteburenzwart(int handle)
 lopen:
 	maxvan = bestvan[(rendom * moizet) / 50];
 	maxnaar = bestnaar[(rendom * moizet) / 50];
-	if (maxvan == 0 || maxnaar == 0 || maxvan == maxnaar)
+	if( maxvan == 0 || maxnaar == 0 || maxvan == maxnaar )
 	{
 		rendom++;
-		if (rendom > 50)
+		if( rendom > 50 )
 			rendom = 0;
 		goto lopen;
 	}
-
 /*	goto fietsen;
-	for(berta=anfang;berta!=ende;berta=berta+wisselbitje)
-	{       doezwheenzet(bestvan[berta],bestnaar[berta]);
-	aantalburen=0;
-	if (veld[la[bestnaar[berta]]]==2) aantalburen++;
-	if (veld[ra[bestnaar[berta]]]==2) aantalburen++;
-	if (veld[lv[bestnaar[berta]]]==2) aantalburen++;
-	if (veld[rv[bestnaar[berta]]]==2) aantalburen++;
-	if(aantalburen>maxaantburen)
-	{maxaantburen=aantalburen;maxvan=bestvan[berta];
-	maxnaar=bestnaar[berta];};
-	doezwtrugzet(bestvan[berta],bestnaar[berta]);
-	}; 
+	for( berta = anfang; berta != ende; berta = berta + wisselbitje )
+	{
+		doezwheenzet(bestvan[berta], bestnaar[berta]);
+		aantalburen = 0;
+		if( veld[la[bestnaar[berta]]] == 2 )
+			aantalburen++;
+		if( veld[ra[bestnaar[berta]]] == 2 )
+			aantalburen++;
+		if( veld[lv[bestnaar[berta]]] == 2 )
+			aantalburen++;
+		if( veld[rv[bestnaar[berta]]] == 2 )
+			aantalburen++;
+		if( aantalburen > maxaantburen )
+		{
+			maxaantburen = aantalburen;
+			maxvan = bestvan[berta];
+			maxnaar = bestnaar[berta];
+		}
+		doezwtrugzet(bestvan[berta], bestnaar[berta]);
+	}
 fietsen:*/
 }
 
@@ -1222,13 +1626,13 @@ static void do_menu(int handle)
 			switch (menu_button_at(x, y))
 			{
 				case IDM_EXIT:
-					klaar = 1;
+					g_exit = 1;
 					break;
 				case IDM_CLEAR:
-					leegbord(handle);
+					clear_board(handle);
 					break;
 				case IDM_NEW:
-					nieuwspel(handle);
+					new_game(handle);
 					break;
 				case IDM_UNDO:
 					zetterug(handle);
@@ -1251,7 +1655,7 @@ static void do_menu(int handle)
 			while (pstatus == 1)
 				vq_mouse(handle, &pstatus, &x, &y);
 		}
-	} while (klaar == 0 && menu_contains(x, y));
+	} while (g_exit == 0 && menu_contains(x, y));
 
 	menu_hide(handle);
 }
@@ -1262,144 +1666,208 @@ static void zetterug(int handle)
  if(zettenteller>0){zettenteller=zettenteller-1;wisselbitje=-wisselbitje;};
  for(tel=1;tel<51;tel++)
    {if(veld[tel]==bord[zettenteller][tel]) goto f;
-    if(bord[zettenteller][tel]==0){veld[tel]=0;tekenschijf(handle,tel,0);};
-    if(bord[zettenteller][tel]==2){veld[tel]=2;tekenschijf(handle,tel,2);};
+    if(bord[zettenteller][tel]==0){veld[tel]=0;draw_piece(handle,tel,0);};
+    if(bord[zettenteller][tel]==2){veld[tel]=2;draw_piece(handle,tel,2);};
     if(bord[zettenteller][tel]==1){veld[tel]=1;tekenwittedam(handle,tel);};
     if(bord[zettenteller][tel]==3){veld[tel]=3;tekenzwartedam(handle,tel);};
-    if(bord[zettenteller][tel]==4){veld[tel]=4;verwijderschijf(handle,tel);};
+    if(bord[zettenteller][tel]==4){veld[tel]=4;remove_piece(handle,tel);};
     f:;
    };show_mouse();
 }
 
+/* windshield */
 static void voorruit(int handle)
-{hide_mouse();
-if(zettenteller<mz){zettenteller=zettenteller+1;wisselbitje=-wisselbitje;};
-for(tel=1;tel<51;tel++)
-   {if(veld[tel]==bord[zettenteller][tel]) goto l;
-    if(bord[zettenteller][tel]==0){veld[tel]=0;tekenschijf(handle,tel,0);};
-    if(bord[zettenteller][tel]==2){veld[tel]=2;tekenschijf(handle,tel,2);};
-    if(bord[zettenteller][tel]==1){veld[tel]=1;tekenwittedam(handle,tel);};
-    if(bord[zettenteller][tel]==3){veld[tel]=3;tekenzwartedam(handle,tel);};
-    if(bord[zettenteller][tel]==4){veld[tel]=4;verwijderschijf(handle,tel);};
-    l:;
-   };show_mouse();
+{
+	hide_mouse();
+	if( zettenteller < mz )
+	{
+		zettenteller = zettenteller + 1;
+		wisselbitje = -wisselbitje;
+	}
+	for( tel = 1; tel < 51; tel++ )
+	{
+		if( veld[tel] == bord[zettenteller][tel] )
+			goto l;
+		if(bord[zettenteller][tel]==0){veld[tel]=0;draw_piece(handle,tel,0);}
+		if(bord[zettenteller][tel]==2){veld[tel]=2;draw_piece(handle,tel,2);}
+		if(bord[zettenteller][tel]==1){veld[tel]=1;tekenwittedam(handle,tel);}
+		if(bord[zettenteller][tel]==3){veld[tel]=3;tekenzwartedam(handle,tel);}
+		if(bord[zettenteller][tel]==4){veld[tel]=4;remove_piece(handle,tel);}
+l:;
+	}
+	show_mouse();
 }
 
 
-static void nieuwspel(int handle)
-{zettenteller=0;hide_mouse();wisselbitje=1;
- for(tel=1;tel<51;tel++)
-   {if(veld[tel]==bord[0][tel]) goto g;
-    if(bord[0][tel]==0){veld[tel]=0;tekenschijf(handle,tel,0);};
-    if(bord[0][tel]==2){veld[tel]=2;tekenschijf(handle,tel,2);};
-    if(bord[0][tel]==4){veld[tel]=4;verwijderschijf(handle,tel);};
-    g:;
-   };show_mouse();
+static void new_game(int handle)
+{
+	zettenteller = 0;
+	hide_mouse();
+	wisselbitje = 1;
+	for( tel = 1; tel < 51; tel++ )
+	{
+		if( veld[tel] != bord[0][tel] )
+		{
+			if( bord[0][tel] == PIECE_LIGHT_MAN )
+			{
+				veld[tel] = PIECE_LIGHT_MAN;
+				draw_piece(handle, tel, PIECE_LIGHT_MAN);
+			}
+			if( bord[0][tel] == PIECE_DARK_MAN )
+			{
+				veld[tel] = PIECE_DARK_MAN;
+				draw_piece(handle, tel, PIECE_DARK_MAN);
+			}
+			if( bord[0][tel] == PIECE_NONE )
+			{
+				veld[tel] = PIECE_NONE;
+				remove_piece(handle, tel);
+			}
+		}
+	}
+	show_mouse();
 }
+
 
 static void edit(int handle)
-{int x,y,pstatus;
-hide_mouse();
-vst_effects(handle,2);vswr_mode(handle,3);v_gtext(handle,33,235,"edit");
-show_mouse();vq_mouse(handle,&pstatus,&x,&y);
-while(pstatus==1)
-vq_mouse(handle,&pstatus,&x,&y);
-while(x<100)
-  {vq_mouse(handle,&pstatus,&x,&y);if(pstatus==1)goto noot;};
-aap:;while(pstatus!=1){vq_mouse(handle,&pstatus,&x,&y);if(x<100)goto noot;};
-waarismuis(handle);hide_mouse();
-if(veld[daar]==0){veld[daar]=2;tekenschijf(handle,daar,2);goto m;};
-if(veld[daar]==1){veld[daar]=3;tekenzwartedam(handle,daar);goto m;};
-if(veld[daar]==2){veld[daar]=1;tekenwittedam(handle,daar);goto m;};
-if(veld[daar]==3){veld[daar]=4;verwijderschijf(handle,daar);goto m;};
-if(veld[daar]==4){veld[daar]=0;tekenschijf(handle,daar,0);goto m;};
-m:;while(pstatus==1)vq_mouse(handle,&pstatus,&x,&y);
-show_mouse();
-if(x<100)goto noot;
-goto aap;
-noot:; zettenteller++;if(zettenteller>mz)mz=zettenteller;
-for(tel=1;tel<51;tel++)bord[zettenteller][tel]=veld[tel];hide_mouse();
-/*mies:;*/if(zettenteller>105)zettenteller=0;
-pxyarray[0]=20;pxyarray[1]=222;pxyarray[2]=80;vsf_interior(handle,2);     
-pxyarray[3]=239;vsl_type(handle,1);vswr_mode(handle,1);
-vsf_style(handle,8);vr_recfl(handle,pxyarray); 
-vst_effects(handle,0);vswr_mode(handle,3);v_gtext(handle,33,235,"edit");
-vswr_mode(handle,3);show_mouse();
+{
+	int pstatus, x, y;
+
+	menu_set_edit(handle, 1);
+
+	do {
+		vq_mouse(handle, &pstatus, &x, &y);
+	} while( pstatus == 1 );
+
+	while( x < 100 )
+	{
+		vq_mouse(handle, &pstatus, &x, &y);
+		if( pstatus == 1 )
+			goto noot;
+	}
+aap:
+	while( pstatus != 1 )
+	{
+		vq_mouse(handle, &pstatus, &x, &y);
+		if( x < 100 )
+			goto noot;
+	}
+
+	where_is_mouse(handle);
+
+	hide_mouse();
+	switch( veld[daar] )
+	{
+		case PIECE_LIGHT_MAN:
+			veld[daar] = PIECE_DARK_MAN;
+			draw_piece(handle, daar, PIECE_DARK_MAN);
+			break;
+		case PIECE_LIGHT_KING:
+			veld[daar] = PIECE_DARK_KING;
+			tekenzwartedam(handle, daar);
+			break;
+		case PIECE_DARK_MAN:
+			veld[daar] = PIECE_LIGHT_KING;
+			tekenwittedam(handle, daar);
+			break;
+		case PIECE_DARK_KING:
+			veld[daar] = PIECE_NONE;
+			remove_piece(handle, daar);
+			break;
+		case PIECE_NONE:
+			veld[daar] = PIECE_LIGHT_MAN;
+			draw_piece(handle, daar, PIECE_LIGHT_MAN);
+			break;
+	}
+	while( pstatus == 1 )
+		vq_mouse(handle, &pstatus, &x, &y);
+	show_mouse();
+	if( x < 100 )
+		goto noot;
+	goto aap;
+noot:
+	zettenteller++;
+	if( zettenteller > mz )
+		mz = zettenteller;
+	for( tel = 1; tel < 51; tel++ )
+		bord[zettenteller][tel] = veld[tel];
+/*	hide_mouse();*/
+/*mies:;*/
+	if( zettenteller > 105 )
+		zettenteller = 0;
+
+#ifdef JUNK
+	pxyarray[0] = 20;
+	pxyarray[1] = 222;
+	pxyarray[2] = 80;
+	vsf_interior(handle, 2);
+	pxyarray[3] = 239;
+	vsl_type(handle, 1);
+	vswr_mode(handle, MD_REPLACE);
+	vsf_style(handle, 8);
+	vr_recfl(handle, pxyarray);
+
+	vst_effects(handle, 0);
+	vswr_mode(handle, MD_XOR);
+	v_gtext(handle, 33, 235,"edit");
+
+	vswr_mode(handle, MD_XOR);
+	show_mouse();
+#endif
+	menu_set_edit(handle, 0);
 }
 
 
-static void leegbord(int handle)
+static void clear_board(int handle)
 {
-	for (tel = 1; tel < 51; tel++)
+	for( tel = 1; tel < 51; tel++ )
 	{
-		if (veld[tel] != 4)
-			verwijderschijf(handle, tel); /* delete disk */
+		if( veld[tel] != PIECE_NONE )
+			remove_piece(handle, tel);
 	}
 	zettenteller++;
-	if (zettenteller > mz)
+	if( zettenteller > mz )
 		mz = zettenteller;
-	for (tel = 1; tel < 51; tel++)
+	for( tel = 1; tel < 51; tel++ )
 		bord[zettenteller][tel] = veld[tel];
-	if (zettenteller > 105)
+	if( zettenteller > 105 )
 		zettenteller = 0;
 }
 
-/*
-static void levelomhoog(int handle)
-{int pstatus,x,y;
- level++;vq_mouse(handle,&pstatus,&x,&y);
- if(level>6)level=6;
 
+static void debug_msg(int handle, const char *msg)
+{
+	static int xy[] = {BOARD_RIGHT + 1, 0, 639, 20};
+	int i;
 
-pxyarray[0]=20;pxyarray[1]=303;pxyarray[2]=80;vsf_interior(handle,2);     
-pxyarray[3]=318;vsl_type(handle,1);vswr_mode(handle,1);
-vsf_style(handle,8);vr_recfl(handle,pxyarray); 
-vst_effects(handle,0);vswr_mode(handle,3);
+	vswr_mode(handle, MD_REPLACE);
+	vsf_interior(handle, FIS_SOLID);
+	vsf_color(handle, 1);
+	vr_recfl(handle, xy);
 
- if(level==0)v_gtext(handle,24,315,"level:0"); 
- if(level==1)v_gtext(handle,24,315,"level:1"); 
- if(level==2)v_gtext(handle,24,315,"level:2"); 
- if(level==3)v_gtext(handle,24,315,"level:3"); 
- if(level==4)v_gtext(handle,24,315,"level:4"); 
- if(level==5)v_gtext(handle,24,315,"level:5"); 
- if(level==6)v_gtext(handle,24,315,"level:6");vswr_mode(handle,3); 
-while(pstatus==1)vq_mouse(handle,&pstatus,&x,&y);
+	vswr_mode(handle, MD_XOR);
+	/*
+		horz: 0=left, 1=center, 2=right
+		vert: 0=baseline, 1=half, 2=ascent, 3=bottom, 4=descent, 5=top
+	*/
+	vst_alignment(handle, 0, 5, &i, &i);
+	v_gtext(handle, BOARD_RIGHT + 1, 0, (char*)msg);
 }
-static void levelomlaag(int handle)
-{int pstatus,x,y;
- level--;vq_mouse(handle,&pstatus,&x,&y);
- if(level<1)level=1;
-pxyarray[0]=20;pxyarray[1]=303;pxyarray[2]=80;vsf_interior(handle,2);     
-pxyarray[3]=318;vsl_type(handle,1);vswr_mode(handle,1);
-vsf_style(handle,8);vr_recfl(handle,pxyarray); 
-vst_effects(handle,0);vswr_mode(handle,3); 
- if(level==0)v_gtext(handle,24,315,"level:0"); 
- if(level==1)v_gtext(handle,24,315,"level:1"); 
- if(level==2)v_gtext(handle,24,315,"level:2"); 
- if(level==3)v_gtext(handle,24,315,"level:3"); 
- if(level==4)v_gtext(handle,24,315,"level:4"); 
- if(level==5)v_gtext(handle,24,315,"level:5"); 
- if(level==6)v_gtext(handle,24,315,"level:6");vswr_mode(handle,3); 
-while(pstatus==1)vq_mouse(handle,&pstatus,&x,&y);
-}
-*/
+
 
 int main(void)
 {
-	int i, startx, starty, /*grootte,*/ x, y, zw, /*tol,*/ van = 0, naar = 0, pstatus;
+	int handle, work_in[16], work_out[57];
+	int pstatus, x, y;
+	int i, from = 0, to = 0;
 
-	zwartesteen = 2;
-	wittesteen = 0;
-	leeg = 4;
-	zwartedam = 3;
-	wittedam = 1;
 	veld[0] = 10;
 	wisselbitje = 1;
-	for (i = 0; i < 10; work_in[i++] = 1);
+
+	memset(work_in, 0, 16 * sizeof(int));
+	for (i = 0; i < 10; i++)
+		work_in[i] = 1;
 	work_in[10] = 2;
-	startx = 100;
-	starty = 0;
-	/*grootte = 300;*/
 
 	appl_init();
 	graf_mouse(ARROW, NULL);
@@ -1407,81 +1875,39 @@ int main(void)
 	v_opnvwk(work_in, &handle, work_out);
 	v_clrwk(handle);
 
-	for (tel = 1; tel < 12; tel++)
-	{
-		pxyarray[0] = startx;
-		pxyarray[1] = starty;
-		pxyarray[2] = startx + 400;
-		pxyarray[3] = starty;
-		v_pline(handle, 2, pxyarray);
-		starty += 40;
-	}
+	menu_hide(handle);
 
-	vsl_udsty(handle, 0);
-	startx = 100;
-	starty = 0;
-	x = 101;
-	y = 1;
-	zw = -1;
-	for (tel = 1; tel < 12; tel++)
-	{
-		pxyarray[0] = startx;
-		pxyarray[1] = starty;
-		pxyarray[2] = startx;
-		pxyarray[3] = starty + 400;
-		v_pline(handle, 2, pxyarray);
-		startx += 40;
-	}
+	board_draw_grid_lines(handle);
+	board_draw_gray_squares(handle);
 
-	vsf_interior(handle, 2);
-	vsf_style(handle, 4);
-	/*tol = 1;*/
-	for (tel = 1; tel < 101; tel++)
-	{
-		if (zw == 1)
-		{
-			pxyarray[0] = x;
-			pxyarray[1] = y;
-			pxyarray[2] = x + 38;
-			pxyarray[3] = y + 38;
-			vr_recfl(handle, pxyarray);
-		}
-		if (x > 459)
-		{
-			x = 61;
-			zw = -zw;
-			y = y + 40;
-		}
-		x = x + 40;
-		zw = -zw;
-	}
-	pxyarray[0] = 0;
+	pxyarray[0] = BOARD_RIGHT + 1;
 	pxyarray[1] = 0;
-	pxyarray[2] = 100;
-	pxyarray[3]=400;
+	pxyarray[2] = 639;
+	pxyarray[3] = 399;
 	vsf_style(handle, 8);
 	vr_recfl(handle, pxyarray);
-	pxyarray[0] = 500;
-	pxyarray[2] = 640;
-	vr_recfl(handle, pxyarray);
-	initbord(handle);
+
+	init_board(handle);
 	rendom = 1;
-	for (tel = 1; tel < 51; tel++)
+	for( tel = 1; tel < 51; tel++ )
 		bord[0][tel] = veld[tel];
+
 	show_mouse();
-	maxarray[1] = 4;
-	maxarray[2] = 5;
+
+	/*maxarray[1] = 4;
+	maxarray[2] = 5;*/
+
 	zettenteller = 0;
 	level = 3;
 	vq_mouse(handle, &pstatus, &x, &y);
-	klaar = 0;
-	while (klaar == 0)
+	g_exit = 0;
+	while (g_exit == 0)
 	{
 		for (tel = 1; tel < 51; tel++)
 			bord[zettenteller][tel] = veld[tel];
 g:
 		vq_mouse(handle, &pstatus, &x, &y);
-		while (pstatus != 1 && klaar == 0)
+		while (pstatus != 1 && g_exit == 0)
 		{
 			vq_mouse(handle, &pstatus, &x, &y);
 			rendom++;
@@ -1493,12 +1919,12 @@ g:
 				goto c;*/
 		}
 /*c:*/
-		if (klaar == 1)
-			goto e;
+		if (g_exit == 1)
+			break;/*goto e;*/
 
 		scwitslag(handle);
 		if (aantal == 0)
-			doewzet(handle, van, naar);
+			doewzet(handle, from, to);
 		if (aantal > 0)
 			witteslag(handle);
 		if (illegalezet == 1)
@@ -1512,17 +1938,17 @@ g:
 			if (veld[tel] == 0)
 				tekenwittedam(handle, tel);
 		}
-		totzwart = 0;
-		totwit = 0;
+		/*totzwart = 0;
+		totwit = 0;*/
 		slag = 1;
 		zet = 0;
-		eerstaantal = 0;
-		hiscore = -10;
+		/*eerstaantal = 0;
+		hiscore = -10;*/
 		witgezet = 0;
 		diepte = 0;
-		testbitje = 1;
+		/*testbitje = 1;
 		subhigh = -10;
-		/*for (tel = 1; tel < 51; tel++)
+		for (tel = 1; tel < 51; tel++)
 			xbios(32, tel);*/
 		zettenteller++;
 		if (zettenteller > mz)
@@ -1561,13 +1987,13 @@ g:
 		moislag = 1;
 		for (tel = 46; tel < 51; tel++)
 		{
-			if (veld[tel] == 2)
+			if (veld[tel] == PIECE_DARK_MAN)
 				tekenzwartedam(handle, tel);
 		}
 		show_mouse();
 	}
 
-e:
+/*e:*/
 
 	v_clsvwk(handle);
 	appl_exit();

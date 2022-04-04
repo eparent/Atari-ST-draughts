@@ -52,6 +52,7 @@ static MenuItem_t s_items[] = {
 };
 
 static MenuItem_t *s_level = NULL;
+static MenuItem_t *s_edit = NULL;
 
 
 static void init(void)
@@ -63,6 +64,8 @@ static void init(void)
 	{
 		if (item->id == IDM_LEVEL)
 			s_level = item;
+		else if (item->id == IDM_EDIT)
+			s_edit = item;
 
 		item->top = top;
 		item->bottom = item->top + MENU_ITEM_H;
@@ -82,6 +85,20 @@ static void update_level_text(int level)
 	if (digitIndex == 0)
 		digitIndex = strlen(s_level->text) - 1;
 	s_level->text[digitIndex] = '0' + level;
+}
+
+
+static void erase_item(int handle, MenuItem_t *item)
+{
+	static int xy[] = {MENU_ITEM_X, 0, (MENU_ITEM_X + MENU_ITEM_W), 0};
+
+	xy[1] = item->top;
+	xy[3] = item->bottom;
+	
+	vswr_mode(handle, MD_REPLACE);
+	vsf_interior(handle, FIS_SOLID);
+	vsf_color(handle, 1);
+	vr_recfl(handle, xy);
 }
 
 
@@ -151,6 +168,19 @@ void menu_update_level(int handle, int level)
 
 	update_level_text(level);
 	draw_item(handle, s_level);
+
+	graf_mouse(M_ON, 0L);
+}
+
+
+void menu_set_edit(int handle, int edit)
+{
+	graf_mouse(M_OFF, 0L);
+
+	erase_item(handle, s_edit);
+	vst_effects(handle, edit == 0 ? 0 : 2);
+	draw_item(handle, s_edit);
+	vst_effects(handle, 0);
 
 	graf_mouse(M_ON, 0L);
 }
