@@ -43,8 +43,25 @@ void board_draw_grid_lines(int handle)
 }
 
 
+static void board_draw_gray_square(int handle, int pos)
+{
+	int xy[4];
+
+	xy[0] = posx[pos] - 20;
+	xy[1] = posy[pos] - 20;
+	xy[2] = posx[pos] + 20;
+	xy[3] = posy[pos] + 20;
+
+	vsf_interior(handle, FIS_PATTERN);
+	vsf_style(handle, 4);
+	vswr_mode(handle, MD_REPLACE);
+	v_bar(handle, xy);
+}
+
+
 void board_draw_gray_squares(int handle)
 {
+#ifdef OLD
 	int i, x, y, zw, xy[4];
 
 	vsl_udsty(handle, 0);
@@ -74,6 +91,13 @@ void board_draw_gray_squares(int handle)
 		x = x + 40;
 		zw = -zw;
 	}
+#else
+	int pos;
+
+	for( pos = 1; pos < 51; pos++ )
+		board_draw_gray_square(handle, pos);
+	
+#endif
 }
 
 
@@ -92,6 +116,36 @@ static void board_draw_light_man(int handle, int pos)
 	vsf_interior(handle, FIS_HOLLOW);
 	v_circle(handle, x, y, PIECE_RADIUS_INNER_1);
 	v_circle(handle, x, y, PIECE_RADIUS_INNER_2);
+}
+
+
+static void board_draw_light_king(int handle, int pos)
+{
+	int xy[6];
+	int x = posx[pos], y = posy[pos];
+
+	vswr_mode(handle, MD_REPLACE);
+	vsf_style(handle, 8);
+
+	vsf_color(handle, 0);
+	vsf_interior(handle, FIS_SOLID);
+	v_circle(handle, x, y, PIECE_RADIUS);
+
+	vsl_color(handle, 1);
+
+	xy[0] = x - PIECE_RADIUS_INNER_2;
+	xy[1] = y - PIECE_RADIUS_INNER_1;
+	xy[2] = xy[0];
+	xy[3] = y + PIECE_RADIUS_INNER_1;
+	v_pline(handle, 2, xy);
+
+	xy[0] = x + PIECE_RADIUS_INNER_2;
+	xy[1] = y - PIECE_RADIUS_INNER_1;
+	xy[2] = x - PIECE_RADIUS_INNER_2;
+	xy[3] = y;
+	xy[4] = xy[0];
+	xy[5] = y + PIECE_RADIUS_INNER_1;
+	v_pline(handle, 3, xy);
 }
 
 
@@ -114,6 +168,36 @@ static void board_draw_dark_man(int handle, int pos)
 }
 
 
+static void board_draw_dark_king(int handle, int pos)
+{
+	int xy[6];
+	int x = posx[pos], y = posy[pos];
+
+	vswr_mode(handle, MD_REPLACE);
+	vsf_style(handle, 8);
+
+	vsf_color(handle, 1);
+	vsf_interior(handle, FIS_SOLID);
+	v_circle(handle, x, y, PIECE_RADIUS);
+
+	vsl_color(handle, 0);
+
+	xy[0] = x - PIECE_RADIUS_INNER_2;
+	xy[1] = y - PIECE_RADIUS_INNER_1;
+	xy[2] = xy[0];
+	xy[3] = y + PIECE_RADIUS_INNER_1;
+	v_pline(handle, 2, xy);
+
+	xy[0] = x + PIECE_RADIUS_INNER_2;
+	xy[1] = y - PIECE_RADIUS_INNER_1;
+	xy[2] = x - PIECE_RADIUS_INNER_2;
+	xy[3] = y;
+	xy[4] = xy[0];
+	xy[5] = y + PIECE_RADIUS_INNER_1;
+	v_pline(handle, 3, xy);
+}
+
+
 void board_draw_piece(int handle, int pos, int piece)
 {
 	switch( piece )
@@ -121,8 +205,17 @@ void board_draw_piece(int handle, int pos, int piece)
 		case PIECE_LIGHT_MAN:
 			board_draw_light_man(handle, pos);
 			break;
+		case PIECE_LIGHT_KING:
+			board_draw_light_king(handle, pos);
+			break;
 		case PIECE_DARK_MAN:
 			board_draw_dark_man(handle, pos);
+			break;
+		case PIECE_DARK_KING:
+			board_draw_dark_king(handle, pos);
+			break;
+		case PIECE_NONE:
+			board_draw_gray_square(handle, pos);
 			break;
 	}
 }

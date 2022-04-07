@@ -14,10 +14,12 @@ static void debug_msg(int handle, const char *msg);
 static void init_board(int handle);
 static void clear_board(int handle);
 static void new_game(int handle);
+static void do_edit(int handle);
 static void do_menu(int handle);
+static void do_undo(int handle);
 static void where_is_mouse(int handle);
-static void draw_piece(int handle, int place, int color);
-static void remove_piece(int handle, int place);
+
+static void draw_square(int handle, int pos);
 
 static void bestzwart(int handle);
 static void controleerwzet(int van, int naar);
@@ -40,7 +42,6 @@ static void dozwheenzet(int handle, int zfrom, int zto);
 static void dozwtrugzet(int handle, int zfrom, int zto);
 static void dowheenzet(int handle, int wfrom, int wto);
 static void dowtrugzet(int handle, int wfrom, int wto);
-static void edit(int handle);
 static void levelomhoog(int handle);
 static void levelomlaag(int handle);
 static void meesteburenzwart(int handle);
@@ -57,14 +58,10 @@ static void scanzwslaan(int hok);
 static void scwitslag(int handle);
 static void sczwartslag(int handle);
 
-/*static void tekenveld(int handle);*/
-static void tekenwittedam(int handle, int plaats);
-static void tekenzwartedam(int handle, int plaats);
 static void voorruit(int handle);
 static void wacht(int til);
 static void wittedamzet(int handle);
 static void witteslag(int handle);
-static void zetterug(int handle);
 static void zwatteslag(int handle);
 
 
@@ -121,15 +118,7 @@ int array[21],
 	slagveld[51],
     maxzwart[10], wit[10], zwart[10];
 
-/*
-minsubhigh[30]
-witheeftgezet plekkie minimaalverlies aantalburen subhigh
-int slarray[20][20],bestslarray[20] skore[10] totzwart totwit
-eerstarray[30] eerstaantal hiscore eerstvan eerstnaar
-int testbitje, diep, pointwit[30], pointzwart[30],oud;
-int contrl[12], intin[128], ptsin[128], intout[128], ptsout[128];
-int maxarray[21], hulp[20], from[30], to[30], vorige[30], volgende[30];
-*/
+
 
 
 void hide_mouse(void)
@@ -152,153 +141,32 @@ void show_mouse(void)
 }
 
 
-static void draw_piece(int handle, int pos, int piece)
+static void draw_square(int handle, int pos)
 {
-#ifdef OLD_DRAW_PIECE
-	int x, y;
-#endif
-
-	/*vsf_interior(handle,2);*/  
- 	if (piece == PIECE_LIGHT_KING)
-	{
-		/* white */
-		tekenwittedam(handle, pos);
-		return;
-	}
- 	if (piece == PIECE_DARK_KING)
-	{
-		/* black */
-		tekenzwartedam(handle, pos);
-		return;
-	}
-#ifdef OLD_DRAW_PIECE
-	vsf_interior(handle, piece);
-	vswr_mode(handle, MD_REPLACE);
-	vsf_style(handle, 8);
-	x = posx[pos];
-	y = posy[pos];
-	v_circle(handle, x, y, 17);/*19);*/
-
-	vsf_interior(handle, 0);
-	if (piece == PIECE_LIGHT_MAN)
-	{
-		v_circle(handle, x, y, 13);
-		v_circle(handle, x, y, 6);
-		veld[pos] = 0;
-	}
-	if (piece == PIECE_DARK_MAN)
-	{
-		vsl_type(handle, 1);
-		vsf_interior(handle, 0);
-		vswr_mode(handle, MD_XOR);
-		vsf_style(handle, 8);
-		vsm_color(handle, 2);
-		veld[pos] = 2;
-		v_circle(handle, x, y, 13);
-		v_circle(handle, x, y, 6);
-	}
-	vsf_interior(handle, 2);
-	vsl_type(handle, 1);
-	vswr_mode(handle, 1);
-#else
-	board_draw_piece(handle, pos, piece);
-	veld[pos] = piece;
-#endif
-}
-
-
-/* drawing white */
-static void tekenwittedam(int handle, int place)
-{
-	remove_piece(handle, place);
-
-	vsf_interior(handle, FIS_HOLLOW);
-	vsf_style(handle, 8);
-	vsl_type(handle, SOLID);
-
-	pxyarray[0] = posx[place] - 15;
-	pxyarray[1] = posy[place] - 10;
-	pxyarray[2] = posx[place] + 15;
-	pxyarray[3] = posy[place] + 10;
-	vr_recfl(handle, pxyarray);
-
-	pxyarray[0] = posx[place] - 15;
-	pxyarray[1] = posy[place];
-	pxyarray[2] = posx[place] + 15;
-	pxyarray[3] = posy[place];
-	v_pline(handle, 2, pxyarray);
-
-	veld[place] = PIECE_LIGHT_KING;
-}
-
-
-/* drawing black */
-static void tekenzwartedam(int handle, int place)
-{
-	remove_piece(handle, place);
-
-	vsf_interior(handle, FIS_PATTERN);
-	vsf_style(handle, 8);
-	vsl_type(handle, USERLINE);
-	vswr_mode(handle, MD_REPLACE);
-
-	pxyarray[0] = posx[place] - 15;
-	pxyarray[1] = posy[place] - 10;
-	pxyarray[2] = posx[place] + 15;
-	pxyarray[3] = posy[place] + 10;
-	vr_recfl(handle, pxyarray);
-
-	vsl_type(handle, SOLID);
-	vswr_mode(handle, MD_XOR);
-
-	pxyarray[0] = posx[place] - 15;
-	pxyarray[1] = posy[place];
-	pxyarray[2] = posx[place] + 15;
-	pxyarray[3] = posy[place];
-	v_pline(handle, 2, pxyarray);
-
-	veld[place] = PIECE_DARK_KING;
-}
-
-
-static void remove_piece(int handle, int place)
-{
-	int pxyarray[4];
-
-	vsf_interior(handle, FIS_PATTERN);
-	vsf_style(handle, 4);
-	vswr_mode(handle, MD_REPLACE);
-	/*vsf_color(handle,4);*/
-
-	pxyarray[0] = posx[place] - 20;
-	pxyarray[1] = posy[place] - 20;
-	pxyarray[2] = posx[place] + 20;
-	pxyarray[3] = posy[place] + 20;
-	v_bar(handle, pxyarray);
-
-	veld[place] = PIECE_NONE;
+	board_draw_piece(handle, pos, veld[pos]);
 }
 
 
 /* ??? put */
 static void doewzet(int handle, int from, int to)
 {
-	int pstatus = 0, x, y, tel;
+	int pstatus = 0, x, y, pos;
 
 	while (pstatus != 1)
 		vq_mouse(handle, &pstatus, &x, &y);
 	while (pstatus != 0)
 		vq_mouse(handle, &pstatus, &x, &y);
 
-	for (tel = 1; tel < 51; tel++)
+	for( pos = 1; pos < 51; pos++ )
 	{
-		if( (posx[tel] - 21) < x && x < (posx[tel] + 21) &&
-			(posy[tel] - 21) < y && y < (posy[tel] + 21) )
+		if( (posx[pos] - 21) < x && x < (posx[pos] + 21) &&
+			(posy[pos] - 21) < y && y < (posy[pos] + 21) )
 		{
-			from = tel;
+			from = pos;
 		}
 	}
-	if (veld[from] == PIECE_LIGHT_KING)
+
+	if( veld[from] == PIECE_LIGHT_KING )
 	{
 		/* white insert */
 		wittedamzet(handle);
@@ -325,13 +193,16 @@ static void doewzet(int handle, int from, int to)
 		illegalezet = 1;
 		return;
 	}
-	hide_mouse();
-	remove_piece(handle, from);
-	draw_piece(handle, to, PIECE_LIGHT_MAN);
+
 	veld[from] = PIECE_NONE;
 	veld[to] = PIECE_LIGHT_MAN;
-	mz = zettenteller;
+
+	hide_mouse();
+	draw_square(handle, from);
+	draw_square(handle, to);
 	show_mouse();
+
+	mz = zettenteller;
 }
 
 
@@ -367,16 +238,20 @@ static void wittedamzet(int handle)
 		where_is_mouse(handle);
 		if( hulpje != daar && veld[hulpje] == PIECE_LIGHT_KING )
 		{
-			hide_mouse();
-			remove_piece(handle, hulpje);
+			veld[hulpje] = PIECE_NONE;
 			veld[buf[0]] = PIECE_LIGHT_KING;
+
+			hide_mouse();
+			draw_square(handle, hulpje);
 			show_mouse();
 		}
 		if( veld[daar] == PIECE_NONE )
 		{
-			hide_mouse();
 			bitje = 1;
-			draw_piece(handle, daar, PIECE_LIGHT_KING);
+			veld[daar] = PIECE_LIGHT_KING;
+
+			hide_mouse();
+			draw_square(handle, daar);
 			show_mouse();
 		}
 		hulpje = daar;
@@ -458,13 +333,15 @@ k:;
 		return;
 	}
 	/*goto klaasje;*/
-	hide_mouse();
-	remove_piece(handle, buf[0]);
-	tekenwittedam(handle, buf[teller]);
-	/*for( kut = 0; kut <= teller; kut++ )
-		tekenwittedam(handle, buf[kut]);*/
+
+	veld[buf[0]] = PIECE_NONE;
 	veld[buf[teller]] = PIECE_LIGHT_KING;
+
+	hide_mouse();
+	draw_square(handle, buf[0]);
+	draw_square(handle, buf[teller]);
 	show_mouse();
+
 	mz = zettenteller;
 }
 
@@ -502,11 +379,12 @@ nogeens:
 	if (ok== 0)
 		goto nogeens;
 
+	veld[van] = PIECE_NONE;
+	veld[naar] = PIECE_DARK_MAN;
+
 	hide_mouse();
-	remove_piece(handle, van);
-	draw_piece(handle, naar, 2);
-	veld[van] = 4;
-	veld[naar] = 2;
+	draw_square(handle, van);
+	draw_square(handle, naar);
 	show_mouse();
 }
 
@@ -546,16 +424,20 @@ static void witteslag(int handle)
 		where_is_mouse(handle);
 		if( hulpje != daar && veld[hulpje] == buf[1] )
 		{
+			veld[hulpje] = PIECE_NONE;
+
 			hide_mouse();
-			remove_piece(handle, hulpje);
+			draw_square(handle, hulpje);
 			show_mouse();
 		}
 		bitje = 0;
 		if( veld[daar] == PIECE_NONE )
 		{
-			hide_mouse();
 			bitje = 1;
-			draw_piece(handle, daar, buf[1]);
+			veld[daar] = buf[1];
+
+			hide_mouse();
+			draw_square(handle, daar);
 			show_mouse();
 		}
 		hulpje = daar;
@@ -578,9 +460,12 @@ static void witteslag(int handle)
 	if( teller != mixscore + 2 )
 	{
 		illegalezet = 1;
+		veld[buf[0]] = buf[1];
+		veld[buf[teller]] = PIECE_NONE;
+
 		hide_mouse();
-		draw_piece(handle, buf[0], buf[1]);
-		remove_piece(handle, buf[teller]/*,buf[teller+1]*/);
+		draw_square(handle, buf[0]);
+		draw_square(handle, buf[teller]);
 		show_mouse();
 		return;
 	}
@@ -674,61 +559,127 @@ static void where_is_mouse(int handle)
 	}
 }
 
-
+/* scan w hit */
 static void scanwslaan(int hok)
-{int slachtoffer;
- veld[0]=10;
-if(((veld[lv[hok]]==2)||(veld[lv[hok]]==3))&&(veld[llv[hok]]==4))  
- {slachtoffer=veld[lv[hok]];
-  score=score+2;array[score]=lv[hok];array[score+1]=slachtoffer;
-  array[score+2]=llv[hok];veld[lv[hok]]=4;
-  if(score==maxscore)
-   {aantal++;for (kat=0;kat<=score+2;kat++)wslag[aantal][kat]=array[kat];};
-  if(score>maxscore)
-   {maxscore=score;aantal=1;
-    for(kat=0;kat<=score+2;kat++)wslag[1][kat]=array[kat];};
-  scanwslaan(llv[hok]);veld[lv[hok]]=slachtoffer;
-  veld[llv[hok]]=4;score=score-2;};  
+{
+	int slachtoffer;
 
-if(((veld[rv[hok]]==2)||(veld[rv[hok]]==3))&&(veld[rrv[hok]]==4))  
- {slachtoffer=veld[rv[hok]];
-  score=score+2;array[score]=rv[hok];array[score+1]=slachtoffer;
-  array[score+2]=rrv[hok];veld[rv[hok]]=4;
-  if(score==maxscore)
-   {aantal++;for (kat=0;kat<=score+2;kat++)wslag[aantal][kat]=array[kat];};
-  if(score>maxscore)
-   {maxscore=score;aantal=1;
-    for(kat=0;kat<=score+2;kat++)wslag[1][kat]=array[kat];};
-  scanwslaan(rrv[hok]);veld[rv[hok]]=slachtoffer;
-  veld[rrv[hok]]=4;score=score-2;};  
+	veld[0] = 10;
 
-if(((veld[ra[hok]]==2)||(veld[ra[hok]]==3))&&(veld[rra[hok]]==4))  
- {slachtoffer=veld[ra[hok]];
-  score=score+2;array[score]=ra[hok];array[score+1]=slachtoffer;
-  array[score+2]=rra[hok];veld[ra[hok]]=4;
-  if(score==maxscore)
-   {aantal++;for (kat=0;kat<=score+2;kat++)wslag[aantal][kat]=array[kat];};
-  if(score>maxscore)
-   {maxscore=score;aantal=1;
-    for(kat=0;kat<=score+2;kat++)wslag[1][kat]=array[kat];};
-  scanwslaan(rra[hok]);veld[ra[hok]]=slachtoffer;
-  veld[rra[hok]]=4;score=score-2;};  
+	if( (veld[lv[hok]] == PIECE_DARK_MAN || veld[lv[hok]] == PIECE_DARK_KING)
+		&& veld[llv[hok]] == PIECE_NONE )
+	{
+		slachtoffer = veld[lv[hok]];
+		score += 2;
+		array[score] = lv[hok];
+		array[score + 1] = slachtoffer;
+		array[score + 2] = llv[hok];
+		veld[lv[hok]] = PIECE_NONE;
+		if( score == maxscore )
+		{
+			aantal++;
+			for( kat = 0; kat <= score + 2; kat++ )
+				wslag[aantal][kat] = array[kat];
+		}
+		else if( score > maxscore )
+		{
+			maxscore = score;
+			aantal = 1;
+			for( kat = 0; kat <= score + 2; kat++ )
+				wslag[1][kat] = array[kat];
+		}
+		scanwslaan(llv[hok]);
+		veld[lv[hok]] = slachtoffer;
+		veld[llv[hok]] = PIECE_NONE;
+		score -= 2;
+	}
 
-if(((veld[la[hok]]==2)||(veld[la[hok]]==3))&&(veld[lla[hok]]==4))  
- {slachtoffer=veld[la[hok]];
-  score=score+2;array[score]=la[hok];array[score+1]=slachtoffer;
-  array[score+2]=lla[hok];veld[la[hok]]=4;
-  if(score==maxscore)
-   {aantal++;for (kat=0;kat<=score+2;kat++)wslag[aantal][kat]=array[kat];};
-  if(score>maxscore)
-   {maxscore=score;aantal=1;
-    for(kat=0;kat<=score+2;kat++)wslag[1][kat]=array[kat];};
-  scanwslaan(lla[hok]);veld[la[hok]]=slachtoffer;
-  veld[lla[hok]]=4;score=score-2;};  
- 
+	if( (veld[rv[hok]] == PIECE_DARK_MAN || veld[rv[hok]] == PIECE_DARK_KING)
+		&& veld[rrv[hok]] == PIECE_NONE )
+	{
+		slachtoffer = veld[rv[hok]];
+		score += 2;
+		array[score] = rv[hok];
+		array[score + 1] = slachtoffer;
+		array[score + 2] = rrv[hok];
+		veld[rv[hok]] = PIECE_NONE;
+		if( score == maxscore)
+		{
+			aantal++;
+			for( kat = 0; kat <= score + 2; kat++ )
+				wslag[aantal][kat] = array[kat];
+		}
+		else if( score > maxscore )
+		{
+			maxscore = score;
+			aantal = 1;
+			for( kat = 0; kat <= score + 2; kat++ )
+				wslag[1][kat] = array[kat];
+		}
+		scanwslaan(rrv[hok]);
+		veld[rv[hok]] = slachtoffer;
+		veld[rrv[hok]] = PIECE_NONE;
+		score -= 2;
+	}
+
+	if( (veld[ra[hok]] == PIECE_DARK_MAN || veld[ra[hok]] == PIECE_DARK_KING)
+		&& veld[rra[hok]] == PIECE_NONE )
+	{
+		slachtoffer = veld[ra[hok]];
+		score += 2;
+		array[score] = ra[hok];
+		array[score + 1] = slachtoffer;
+		array[score + 2] = rra[hok];
+		veld[ra[hok]] = PIECE_NONE;
+		if( score == maxscore)
+		{
+			aantal++;
+			for( kat = 0; kat <= score + 2; kat++ )
+				wslag[aantal][kat] = array[kat];
+		}
+		else if( score > maxscore )
+		{
+			maxscore = score;
+			aantal = 1;
+			for( kat = 0; kat <= score + 2; kat++ )
+				wslag[1][kat] = array[kat];
+		}
+		scanwslaan(rra[hok]);
+		veld[ra[hok]] = slachtoffer;
+		veld[rra[hok]] = PIECE_NONE;
+		score -= 2;
+	}
+
+	if( (veld[la[hok]] == PIECE_DARK_MAN || veld[la[hok]] == PIECE_DARK_KING)
+		&& veld[lla[hok]] == PIECE_NONE )
+	{
+		slachtoffer = veld[la[hok]];
+		score += 2;
+		array[score] = la[hok];
+		array[score + 1] = slachtoffer;
+		array[score + 2] = lla[hok];
+		veld[la[hok]] = PIECE_NONE;
+		if( score == maxscore )
+		{
+			aantal++;
+			for( kat = 0; kat <= score + 2; kat++ )
+				wslag[aantal][kat] = array[kat];
+		}
+		else if( score > maxscore )
+		{
+			maxscore = score;
+			aantal = 1;
+			for( kat = 0; kat <= score + 2; kat++ )
+				wslag[1][kat] = array[kat];
+		}
+		scanwslaan(lla[hok]);
+		veld[la[hok]] = slachtoffer;
+		veld[lla[hok]] = PIECE_NONE;
+		score -= 2;
+	}
 }
 
- 
+
 static void scanlvwdamslag(int hok)
 {int wijs,helpje,bitje,slachtoffer;
  wijs=lv[hok];
@@ -849,21 +800,40 @@ static void scanrawdamslag(int hok)
 }
 
 
-
 static void scwitslag(int handle)
 {
-score=0;maxscore=0;mixscore=0;aantal=0;
-for (tel=1;tel<51;tel++){if (veld[tel]==0){veld[tel]=4;array[0]=tel;
-                          array[1]=0;scanwslaan(tel);veld[tel]=0;};
-                         if (veld[tel]==1)
-                          {veld[tel]=4;array[0]=tel;array[1]=1;
-                           scanlvwdamslag(tel);scanrvwdamslag(tel);
-                           scanlawdamslag(tel);scanrawdamslag(tel);
-                           veld[tel]=1;};
-
-                         if (maxscore>mixscore) mixscore=maxscore;                 
-                                      count=0;};score=maxscore;
-if(aantal>5)aantal=5;
+	score = 0;
+	maxscore = 0;
+	mixscore = 0;
+	aantal = 0;
+	for( tel = 1; tel < 51; tel++ )
+	{
+		if( veld[tel] == PIECE_LIGHT_MAN )
+		{
+			veld[tel] = PIECE_NONE;
+			array[0] = tel;
+			array[1] = 0;
+			scanwslaan(tel);
+			veld[tel] = PIECE_LIGHT_MAN;
+		}
+		if( veld[tel] == PIECE_LIGHT_KING )
+		{
+			veld[tel] = PIECE_NONE;
+			array[0] = tel;
+			array[1] = 1;
+			scanlvwdamslag(tel);
+			scanrvwdamslag(tel);
+			scanlawdamslag(tel);
+			scanrawdamslag(tel);
+			veld[tel] = PIECE_LIGHT_KING;
+		}
+		if( maxscore > mixscore )
+			mixscore = maxscore;
+			count = 0;
+	}
+	score = maxscore;
+	if( aantal > 5 )
+		aantal = 5;
 }
 
 
@@ -1410,28 +1380,26 @@ static void dozwheenslag(int handle, int zixscore, int zwarray[25])
 	wacht(5);
 	for( count = 0; count <= zixscore; count = count + 2 )
 	{
-		remove_piece(handle, zwarray[count]);
 		veld[zwarray[count]] = PIECE_NONE;
+		draw_square(handle, zwarray[count]);
 		wacht(5);
 	};
-	draw_piece(handle, zwarray[zixscore + 2], zwarray[1]);
 	veld[zwarray[zixscore + 2]] = zwarray[1];
+	draw_square(handle, zwarray[zixscore + 2]);
 }
 
 
 static void dozwterugslag(int handle, int zixscore, int zwarray[25])
 {
 	wacht(5);
-	remove_piece(handle, zwarray[zixscore + 2]);
-	veld[zwarray[zixscore+2]] = PIECE_NONE;
+	veld[zwarray[zixscore + 2]] = PIECE_NONE;
+	draw_square(handle, zwarray[zixscore + 2]);
 	for( count = zixscore; count >= 0; count = count - 2 )
 	{
-		draw_piece(handle, zwarray[count], zwarray[count + 1]);
 		veld[zwarray[count]] = zwarray[count + 1];
+		draw_square(handle, zwarray[count]);
 		wacht(5);
 	}
-	/*draw_piece(handle, zwarray[0], 2);
-	veld[zwarray[0]] = 2;*/
 	wacht(5);
 }
 
@@ -1440,63 +1408,61 @@ static void dowheenslag(int handle, int wixscore, int warray[25])
 {
 	for( count = 0; count <= wixscore; count += 2 )
 	{
-		remove_piece(handle, warray[count]);
 		veld[warray[count]] = PIECE_NONE;
+		draw_square(handle, warray[count]);
 	}
-	draw_piece(handle, warray[wixscore + 2], warray[1]);
 	veld[warray[wixscore + 2]] = warray[1];
+	draw_square(handle, warray[wixscore + 2]);
 }
 
 
 static void dowterugslag(int handle, int wixscore, int warray[25])
 {
 	wacht(5);
-	remove_piece(handle, warray[wixscore + 2]);
 	veld[warray[wixscore + 2]] = PIECE_NONE;
+	draw_square(handle, warray[wixscore + 2]);
 	for( count = wixscore; count >= 0; count -= 2 )
 	{
-		draw_piece(handle, warray[count], warray[count + 1]);
 		veld[warray[count]] = warray[count + 1];
+		draw_square(handle, warray[count]);
 	}
-	/*draw_piece(handle, warray[0], 0);
-	veld[warray[0]] = 0;*/
 	wacht(5);
 }
 
 
 static void dozwheenzet(int handle, int zfrom, int zto)
 {
-	remove_piece(handle, zfrom);
 	veld[zfrom] = PIECE_NONE;
-	draw_piece(handle, zto, PIECE_DARK_MAN);
 	veld[zto] = PIECE_DARK_MAN;
+	draw_square(handle, zfrom);
+	draw_square(handle, zto);
 }
 
 
 static void dozwtrugzet(int handle, int zfrom, int zto)
 {
-	remove_piece(handle, zto);
 	veld[zto] = PIECE_NONE;
-	draw_piece(handle, zfrom, PIECE_DARK_MAN);
 	veld[zfrom] = PIECE_DARK_MAN;
+	draw_square(handle, zto);
+	draw_square(handle, zfrom);
 }
 
 
 static void dowheenzet(int handle, int wfrom, int wto)
 {
-	remove_piece(handle, wfrom);
 	veld[wfrom] = PIECE_NONE;
-	draw_piece(handle, wto, PIECE_LIGHT_MAN);
 	veld[wto] = PIECE_LIGHT_MAN;
+	draw_square(handle, wfrom);
+	draw_square(handle, wto);
 }
 
 
 static void dowtrugzet(int handle, int wfrom, int wto)
 {
-	remove_piece(handle, wto);
 	veld[wto] = PIECE_NONE;
-	draw_piece(handle, wfrom, PIECE_LIGHT_MAN);
 	veld[wfrom] = PIECE_LIGHT_MAN;
+	draw_square(handle, wto);
+	draw_square(handle, wfrom);
 }
 
 
@@ -1523,36 +1489,21 @@ static void init_board(int handle)
 	veld[0] = 10;
 	while( pos < 21 )
 	{
-		draw_piece(handle, pos, PIECE_DARK_MAN);
-		veld[pos++] = PIECE_DARK_MAN;
+		veld[pos] = PIECE_DARK_MAN;
+		draw_square(handle, pos++);
 	}
 	while( pos < 31 )
 	{
-		remove_piece(handle, pos);
-		veld[pos++] = PIECE_NONE;
+		veld[pos] = PIECE_NONE;
+		draw_square(handle, pos++);
 	}
 	while( pos < 51 )
 	{
-		draw_piece(handle, pos, PIECE_LIGHT_MAN);
-		veld[pos++] = PIECE_LIGHT_MAN;
+		veld[pos] = PIECE_LIGHT_MAN;
+		draw_square(handle, pos++);
 	}
 }
 
-/* drawing field */
-/*static void tekenveld(int handle)
-{
-	int pos;
-
-	for( pos = 1; pos < 51; pos++ )
-	{
-		if( veld[pos] == PIECE_DARK_MAN )
-			draw_piece(handle, pos, PIECE_DARK_MAN);
-		if( veld[pos] == PIECE_LIGHT_MAN )
-			draw_piece(handle, pos, PIECE_LIGHT_MAN);
-		if( veld[pos] == PIECE_NONE)
-			remove_piece(handle, pos);
-	}
-}*/
 
 /* most neighbors black */
 static void meesteburenzwart(int handle)
@@ -1635,13 +1586,13 @@ static void do_menu(int handle)
 					new_game(handle);
 					break;
 				case IDM_UNDO:
-					zetterug(handle);
+					do_undo(handle);
 					break;
 				case IDM_WINDOW:
 					voorruit(handle);
 					break;
 				case IDM_EDIT:
-					edit(handle);
+					do_edit(handle);
 					break;
 				case IDM_LEVUP:
 					if (level < 6)
@@ -1661,19 +1612,24 @@ static void do_menu(int handle)
 }
 
 
-static void zetterug(int handle)
-{hide_mouse();
- if(zettenteller>0){zettenteller=zettenteller-1;wisselbitje=-wisselbitje;};
- for(tel=1;tel<51;tel++)
-   {if(veld[tel]==bord[zettenteller][tel]) goto f;
-    if(bord[zettenteller][tel]==0){veld[tel]=0;draw_piece(handle,tel,0);};
-    if(bord[zettenteller][tel]==2){veld[tel]=2;draw_piece(handle,tel,2);};
-    if(bord[zettenteller][tel]==1){veld[tel]=1;tekenwittedam(handle,tel);};
-    if(bord[zettenteller][tel]==3){veld[tel]=3;tekenzwartedam(handle,tel);};
-    if(bord[zettenteller][tel]==4){veld[tel]=4;remove_piece(handle,tel);};
-    f:;
-   };show_mouse();
+static void do_undo(int handle)
+{
+	hide_mouse();
+	if( zettenteller > 0 )
+	{
+		zettenteller--;
+		wisselbitje = -wisselbitje;
+	}
+	for( tel = 1; tel < 51; tel++ )
+	{
+		if( veld[tel] == bord[zettenteller][tel] )
+			continue;
+		veld[tel] = bord[zettenteller][tel];
+		draw_square(handle, tel);
+	}
+	show_mouse();
 }
+
 
 /* windshield */
 static void voorruit(int handle)
@@ -1687,13 +1643,9 @@ static void voorruit(int handle)
 	for( tel = 1; tel < 51; tel++ )
 	{
 		if( veld[tel] == bord[zettenteller][tel] )
-			goto l;
-		if(bord[zettenteller][tel]==0){veld[tel]=0;draw_piece(handle,tel,0);}
-		if(bord[zettenteller][tel]==2){veld[tel]=2;draw_piece(handle,tel,2);}
-		if(bord[zettenteller][tel]==1){veld[tel]=1;tekenwittedam(handle,tel);}
-		if(bord[zettenteller][tel]==3){veld[tel]=3;tekenzwartedam(handle,tel);}
-		if(bord[zettenteller][tel]==4){veld[tel]=4;remove_piece(handle,tel);}
-l:;
+			continue;
+		veld[tel] = bord[zettenteller][tel];
+		draw_square(handle, tel);
 	}
 	show_mouse();
 }
@@ -1709,27 +1661,19 @@ static void new_game(int handle)
 		if( veld[tel] != bord[0][tel] )
 		{
 			if( bord[0][tel] == PIECE_LIGHT_MAN )
-			{
 				veld[tel] = PIECE_LIGHT_MAN;
-				draw_piece(handle, tel, PIECE_LIGHT_MAN);
-			}
 			if( bord[0][tel] == PIECE_DARK_MAN )
-			{
 				veld[tel] = PIECE_DARK_MAN;
-				draw_piece(handle, tel, PIECE_DARK_MAN);
-			}
 			if( bord[0][tel] == PIECE_NONE )
-			{
 				veld[tel] = PIECE_NONE;
-				remove_piece(handle, tel);
-			}
+			draw_square(handle, tel);
 		}
 	}
 	show_mouse();
 }
 
 
-static void edit(int handle)
+static void do_edit(int handle)
 {
 	int pstatus, x, y;
 
@@ -1760,25 +1704,22 @@ aap:
 	{
 		case PIECE_LIGHT_MAN:
 			veld[daar] = PIECE_DARK_MAN;
-			draw_piece(handle, daar, PIECE_DARK_MAN);
 			break;
 		case PIECE_LIGHT_KING:
 			veld[daar] = PIECE_DARK_KING;
-			tekenzwartedam(handle, daar);
 			break;
 		case PIECE_DARK_MAN:
 			veld[daar] = PIECE_LIGHT_KING;
-			tekenwittedam(handle, daar);
 			break;
 		case PIECE_DARK_KING:
 			veld[daar] = PIECE_NONE;
-			remove_piece(handle, daar);
 			break;
 		case PIECE_NONE:
 			veld[daar] = PIECE_LIGHT_MAN;
-			draw_piece(handle, daar, PIECE_LIGHT_MAN);
 			break;
 	}
+	draw_square(handle, daar);
+
 	while( pstatus == 1 )
 		vq_mouse(handle, &pstatus, &x, &y);
 	show_mouse();
@@ -1796,24 +1737,6 @@ noot:
 	if( zettenteller > 105 )
 		zettenteller = 0;
 
-#ifdef JUNK
-	pxyarray[0] = 20;
-	pxyarray[1] = 222;
-	pxyarray[2] = 80;
-	vsf_interior(handle, 2);
-	pxyarray[3] = 239;
-	vsl_type(handle, 1);
-	vswr_mode(handle, MD_REPLACE);
-	vsf_style(handle, 8);
-	vr_recfl(handle, pxyarray);
-
-	vst_effects(handle, 0);
-	vswr_mode(handle, MD_XOR);
-	v_gtext(handle, 33, 235,"edit");
-
-	vswr_mode(handle, MD_XOR);
-	show_mouse();
-#endif
 	menu_set_edit(handle, 0);
 }
 
@@ -1823,7 +1746,10 @@ static void clear_board(int handle)
 	for( tel = 1; tel < 51; tel++ )
 	{
 		if( veld[tel] != PIECE_NONE )
-			remove_piece(handle, tel);
+		{
+			veld[tel] = PIECE_NONE;
+			draw_square(handle, tel);
+		}
 	}
 	zettenteller++;
 	if( zettenteller > mz )
@@ -1935,8 +1861,12 @@ g:
 		hide_mouse();
 		for (tel = 1; tel < 6; tel++)
 		{
-			if (veld[tel] == 0)
-				tekenwittedam(handle, tel);
+			if (veld[tel] == PIECE_LIGHT_MAN)
+			{
+				/*tekenwittedam(handle, tel);*/
+				veld[tel] = PIECE_LIGHT_KING;
+				draw_square(handle, tel);
+			}
 		}
 		/*totzwart = 0;
 		totwit = 0;*/
@@ -1988,7 +1918,11 @@ g:
 		for (tel = 46; tel < 51; tel++)
 		{
 			if (veld[tel] == PIECE_DARK_MAN)
-				tekenzwartedam(handle, tel);
+			{
+/*				tekenzwartedam(handle, tel);*/
+				veld[tel] = PIECE_DARK_KING;
+				draw_square(handle, tel);
+			}
 		}
 		show_mouse();
 	}
